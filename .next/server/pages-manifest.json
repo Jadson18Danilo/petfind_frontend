@@ -1,0 +1,13 @@
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/": "pages/index.js",
+  "/chat-off": "pages/chat-off.js",
+  "/login-off": "pages/login-off.js",
+  "/login": "pages/login.js",
+  "/match-display": "pages/match-display.js",
+  "/chat-on": "pages/chat-on.js",
+  "/tutor-profile": "pages/tutor-profile.js",
+  "/settings/match": "pages/settings/match.js"
+}

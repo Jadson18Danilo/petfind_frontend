@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-base, #f8fafc);
+    color: var(--text-base, #0f172a);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  button {
+    transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  button:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+  }
+}
+
+@layer components {
+  .page {
+    @apply min-h-screen;
+    background: #fff7f1;
+  }
+
+  .container-page {
+    @apply max-w-5xl mx-auto px-4;
+  }
+
+  .card {
+    @apply bg-white border border-slate-200 rounded-2xl;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.12);
+  }
+
+  .card-hover {
+    @apply transition hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl text-white px-4 py-2.5 text-sm font-semibold shadow-sm hover:opacity-95;
+    background: #FFA98F;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-slate-900 px-4 py-2.5 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl text-slate-700 px-3 py-2 text-sm font-medium hover:bg-slate-100;
+  }
+
+  .btn-light {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 text-white px-4 py-2 text-sm font-medium hover:bg-white/20;
+  }
+
+  .btn-lg {
+    @apply px-8 py-4 text-lg font-bold;
+  }
+
+  .btn-pill {
+    @apply rounded-full;
+  }
+
+  .btn-text {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-2 py-1 text-sm font-medium text-[#ff8566] hover:bg-[#FFF7F1];
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center size-10 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+  }
+
+  .btn-danger-icon {
+    @apply inline-flex items-center justify-center size-10 rounded-xl border border-red-200 bg-white text-red-500 hover:bg-red-50;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none;
+  }
+
+  .input:focus {
+    box-shadow: 0 0 0 6px rgba(255,169,143,0.12);
+    border-color: transparent;
+  }
+
+  .input-dirty {
+    border: 2px solid rgba(255, 169, 143, 0.72) !important;
+    background: rgba(255, 247, 241, 0.72) !important;
+  }
+
+  .input-dirty:focus {
+    box-shadow: 0 0 0 6px rgba(255,169,143,0.14) !important;
+    border-color: #FFA98F !important;
+    background: #fff !important;
+  }
+
+  select.input {
+    padding-right: 2.5rem;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-slate-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-medium;
+  }
+
+  .section-title {
+    @apply text-2xl font-semibold text-slate-900;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-slate-600;
+  }
+}
+
+/* Custom scrollbar styles */
+@layer utilities {
+  .scrollbar-soft {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 169, 143, 0.3) transparent;
+  }
+  
+  .scrollbar-soft::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-soft::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-soft::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 169, 143, 0.3);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  
+  .scrollbar-soft::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 169, 143, 0.5);
+    background-clip: content-box;
+  }
+}
+
+/* Page background utility for consistent pages */
+.page-bg {
+  background: #FFF7F1;
+}
+
+/* Fallback brand utility classes for environments where Tailwind custom colors aren't available */
+.bg-brand-warm-50 { background-color: #fff7f1; }
+.bg-brand-warm-100 { background-color: #fff1e6; }
+.bg-brand-warm-200 { background-color: #ffe6d6; }
+.bg-brand-warm-500 { background-color: #ffa98f; }
+.bg-brand-warm-600 { background-color: #FFA98F; }
+.text-brand-warm-600 { color: #FFA98F; }
+.bg-gradient-brand { background: #FFA98F; }
+.from-brand-warm-500 { --tw-gradient-from: #ffa98f; }
+.to-brand-warm-600 { --tw-gradient-to: #FFA98F; }
+
+/* Global override: disable gradients and use single brand color */
+[class*="bg-linear-to-"],
+[class*="bg-gradient-to-"] {
+  background-image: none !important;
+  background-color: #FFA98F !important;
+}
+
+[class*="hover:bg-linear-to-"]:hover,
+[class*="hover:bg-gradient-to-"]:hover {
+  background-image: none !important;
+  background-color: #FFA98F !important;
+}
+
+[class*="bg-clip-text"][class*="text-transparent"] {
+  background-image: none !important;
+  color: #FFA98F !important;
+  -webkit-text-fill-color: #FFA98F;
+}
