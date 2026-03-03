@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Layout from '../src/components/Layout';
 import { getMe } from '../src/services/auth';
 import { listMessages, sendMessage, listMatches, markMessagesAsRead } from '../src/services/matches';
+import { getChatSocket } from '../src/services/socket';
 
 export default function ChatOn() {
   const router = useRouter();
@@ -31,6 +32,14 @@ export default function ChatOn() {
       time: new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       isSent: Number(m.senderId) === Number(userId)
     }));
+  };
+
+  const upsertMessage = (incoming) => {
+    setMessages((prev) => {
+      const exists = prev.some((msg) => Number(msg.id) === Number(incoming.id));
+      if (exists) return prev;
+      return [...prev, incoming];
+    });
   };
 
   // Load user and conversations
@@ -69,8 +78,7 @@ export default function ChatOn() {
 
         const allConversations = [supportConv, ...mapped];
         setConversations(allConversations);
-        
-        // Load support messages initially
+
         const supportMessages = [
           {
             id: 1,
@@ -129,6 +137,7 @@ export default function ChatOn() {
     if (!activeConversation || activeConversation === 'support' || !currentUserId) return;
 
     let mounted = true;
+    let socket = null;
     async function fetchMessages() {
       try {
         // Mark messages as read
@@ -144,10 +153,34 @@ export default function ChatOn() {
     }
     fetchMessages();
 
-    const intervalId = setInterval(fetchMessages, 3000);
+    socket = getChatSocket();
+    if (socket) {
+      socket.emit('chat:join', { matchId: activeConversation });
+
+      const onMessage = (payload) => {
+        if (Number(payload?.matchId) !== Number(activeConversation)) return;
+
+        const mapped = {
+          id: payload.id,
+          text: payload.text,
+          time: new Date(payload.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          isSent: Number(payload.senderId) === Number(currentUserId),
+        };
+
+        upsertMessage(mapped);
+      };
+
+      socket.on('chat:new-message', onMessage);
+
+      return () => {
+        mounted = false;
+        socket.emit('chat:leave', { matchId: activeConversation });
+        socket.off('chat:new-message', onMessage);
+      };
+    }
+
     return () => {
       mounted = false;
-      clearInterval(intervalId);
     };
   }, [activeConversation, currentUserId]);
 
@@ -182,7 +215,7 @@ export default function ChatOn() {
         time: new Date(sent.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         isSent: true
       };
-      setMessages((prev) => [...prev, mapped]);
+      upsertMessage(mapped);
       setNewMessage('');
     } catch (err) {
       console.error('Failed to send message', err);

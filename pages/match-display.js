@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, User, MapPin, X, Sparkles } from 'lucide-react';
-import { likePet } from '../src/services/matches';
+import { likePet, listMatches } from '../src/services/matches';
 import { listPets } from '../src/services/pets';
 import { getMe } from '../src/services/auth';
 import { resolveMediaUrl } from '../src/services/media';
@@ -76,13 +76,15 @@ export default function MatchDisplay({
       setLoading(true);
       setSelectionIssue('');
       try {
-        const [meData, data] = await Promise.all([
+        const [meData, data, matchesData] = await Promise.all([
           getMe().catch(() => null),
-          listPets()
+          listPets(),
+          listMatches().catch(() => [])
         ]);
         if (!mounted) return;
 
         const allPets = Array.isArray(data) ? data : [];
+        const realMatches = Array.isArray(matchesData) ? matchesData : [];
         const myUserId = meData?.id != null ? Number(meData.id) : null;
         const savedPrefs = typeof window !== 'undefined'
           ? JSON.parse(window.localStorage.getItem(MATCH_PREFS_KEY) || '{}')
@@ -98,6 +100,24 @@ export default function MatchDisplay({
         const activePet = storedId
           ? ownedPets.find((pet) => pet.id === storedId)
           : ownedPets[0];
+
+        const activePetNumericId = activePet?.id != null ? Number(activePet.id) : null;
+        const matchedPetIds = new Set();
+
+        if (activePetNumericId != null) {
+          realMatches.forEach((match) => {
+            const petAId = Number(match?.petAId);
+            const petBId = Number(match?.petBId);
+
+            if (petAId === activePetNumericId && Number.isFinite(petBId)) {
+              matchedPetIds.add(petBId);
+            }
+
+            if (petBId === activePetNumericId && Number.isFinite(petAId)) {
+              matchedPetIds.add(petAId);
+            }
+          });
+        }
 
         if (typeof window !== 'undefined') {
           if (activePet?.id) {
@@ -144,7 +164,6 @@ export default function MatchDisplay({
           return;
         }
 
-        const preferredSpecies = normalizeText(savedPrefs?.species || 'qualquer');
         const preferredSex = normalizeText(savedPrefs?.sex || 'oposto');
         const preferredAgeRange = normalizeText(savedPrefs?.ageRange || 'todos');
 
@@ -157,8 +176,7 @@ export default function MatchDisplay({
           const petSex = normalizeText(pet.sex || pet.sexo);
           const petAgeGroup = getAgeGroupForPet(pet);
 
-          const speciesMatchesPreference =
-            preferredSpecies === 'qualquer' ? petSpecies === species : petSpecies === preferredSpecies;
+          const speciesMatchesPreference = petSpecies === species;
 
           const sexMatchesPreference =
             preferredSex === 'qualquer'
@@ -313,18 +331,17 @@ export default function MatchDisplay({
       try {
         const resp = await likePet(currentProfile.id, activePetId);
 
-        // Determine if backend reported a match. Be permissive about response shape.
+        // Match real apenas quando backend confirma reciprocidade.
         const matched = !!(
           resp && (
             resp.matched === true ||
             resp.isMatch === true ||
-            resp.match ||
-            resp.id
+            (resp.match && (resp.match.id || resp.match.petAId || resp.match.petBId))
           )
         );
 
-        if (matched || currentProfile?.hasLikedYou) {
-          setCurrentMatch(resp.match || resp || currentProfile);
+        if (matched) {
+          setCurrentMatch(currentProfile);
           setShowMatchNotification(true);
 
           if (onMatch) {
@@ -333,15 +350,6 @@ export default function MatchDisplay({
         }
       } catch (err) {
         // ignore for now; could show a toast later
-      }
-    } else if (direction === 'right' && !activePetId) {
-      // when we don't have an active pet id, keep the previous local behavior
-      if (currentProfile?.hasLikedYou) {
-        setCurrentMatch(currentProfile);
-        setShowMatchNotification(true);
-        if (onMatch) {
-          onMatch({ id: currentProfile.id, petProfile: currentProfile, timestamp: new Date() });
-        }
       }
     }
 
@@ -407,13 +415,18 @@ export default function MatchDisplay({
             <div className="text-center">
               <p className="text-red-500">Erro ao carregar perfis.</p>
             </div>
-          ) : selectionIssue ? (
+          ) : selectionIssue && !currentProfile ? (
             <div className="text-center">
               <p className="text-gray-500">{selectionIssue}</p>
               <button onClick={handleGoPerfil} className="mt-4 btn">Ir para perfil</button>
             </div>
           ) : currentProfile ? (
             <div className="w-full max-w-[min(100%,28rem)]">
+              {selectionIssue && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {selectionIssue}
+                </div>
+              )}
               {/* Card do Pet */}
               <div 
                 className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative ${
