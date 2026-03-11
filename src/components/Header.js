@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { getMe, logoutUser } from '../services/auth';
@@ -78,7 +79,7 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
           {/* Logo */}
           <Link href={user ? '/match-display' : '/'} className="flex items-center gap-1">
-            <img 
+            <Image 
               src="https://img.icons8.com/material-two-tone/24/cat-footprint.png" 
               alt="Ícone de pegada de gato" 
               width={24} 

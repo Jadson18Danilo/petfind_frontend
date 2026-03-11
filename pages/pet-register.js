@@ -142,9 +142,8 @@ export default function PetRegister({
     form.append("sex", formData.sexo);
     form.append("breed", formData.raca);
     form.append("description", formData.biografia);
-    // attach tutor location if available
-    if (me?.cidade) form.append("city", me.cidade);
-    if (me?.estado) form.append("state", me.estado);
+    // attach tutor CEP if available
+    if (me?.cep) form.append("cep", me.cep);
 
     if (mainPhotoFile) form.append("mainPhoto", mainPhotoFile);
     additionalPhotoFiles
@@ -298,6 +297,7 @@ export default function PetRegister({
                 </div>
               </div>
             </div>
+
 
             {/* Seção de Informações Básicas */}
             <div>

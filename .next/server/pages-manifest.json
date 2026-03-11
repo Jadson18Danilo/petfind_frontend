@@ -3,7 +3,7 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/tutor-profile": "pages/tutor-profile.js",
+  "/settings/match": "pages/settings/match.js",
   "/match-display": "pages/match-display.js",
-  "/login": "pages/login.js",
-  "/pet-edit": "pages/pet-edit.js"
+  "/login": "pages/login.js"
 }

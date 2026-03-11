@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Heart, MessageCircle, User, MapPin, X, Sparkles } from 'lucide-react';
 import { likePet, listMatches } from '../src/services/matches';
 import { listPets } from '../src/services/pets';
 import { getMe } from '../src/services/auth';
 import { resolveMediaUrl } from '../src/services/media';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import Layout from '../src/components/Layout';
 
 const IMAGE_DURATION_MS = 10000;
@@ -24,6 +25,12 @@ export default function MatchDisplay({
   const [error, setError] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectionIssue, setSelectionIssue] = useState('');
+  const [radiusKm, setRadiusKm] = useState(() => {
+    if (typeof window === 'undefined') return 10;
+    const stored = Number(window.localStorage.getItem('matchRadiusKm'));
+    const value = Number.isFinite(stored) && stored > 0 ? stored : 10;
+    return Math.min(value, 20);
+  });
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -35,6 +42,17 @@ export default function MatchDisplay({
 
   const currentProfile = pets[currentIndex];
   const currentProfileImages = currentProfile ? getProfileImageUrls(currentProfile) : [];
+  const currentNeighborhood = currentProfile?.neighborhood || currentProfile?.bairro || '';
+  const currentCity = currentProfile?.city || currentProfile?.cidade || '';
+  const currentState = currentProfile?.state || currentProfile?.estado || '';
+  const fallbackLocation = [currentNeighborhood, currentCity, currentState].filter(Boolean).join(', ');
+  const displayLocation = (currentProfile?.location || '').toString().trim() || fallbackLocation || 'Localização não informada';
+  const displayTutorName =
+    (currentProfile?.tutorName || '').toString().trim() ||
+    currentProfile?.tutor?.name ||
+    currentProfile?.owner?.name ||
+    currentProfile?.User?.name ||
+    'Tutor';
   const currentImageUrl = currentProfileImages[currentImageIndex] || '';
   const currentMatchImageUrl = currentMatch ? getImageUrl(currentMatch) : '';
   const hasMoreProfiles = currentIndex < pets.length - 1;
@@ -43,21 +61,21 @@ export default function MatchDisplay({
   const [cardImageFailed, setCardImageFailed] = useState(false);
   const [matchImageFailed, setMatchImageFailed] = useState(false);
 
-  function normalizeText(value) {
+  const normalizeText = useCallback((value) => {
     if (!value) return '';
     return value
       .toString()
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
-  }
+  }, []);
 
-  function getOppositeSex(value) {
+  const getOppositeSex = useCallback((value) => {
     const sex = normalizeText(value);
     if (sex === 'macho') return 'femea';
     if (sex === 'femea') return 'macho';
     return '';
-  }
+  }, [normalizeText]);
 
   function getAgeGroupForPet(pet) {
     const rawAge = Number(pet?.ageMonths ?? pet?.age ?? pet?.idade ?? 0);
@@ -147,7 +165,20 @@ export default function MatchDisplay({
         const species = normalizeText(activePet.species || activePet.especie);
         const opposite = getOppositeSex(activePet.sex || activePet.sexo);
 
-        const fallbackCandidates = allPets.filter((pet) => {
+        const activeLat = Number(activePet.latitude ?? activePet.lat ?? activePet.latitude);
+        const activeLng = Number(activePet.longitude ?? activePet.lng ?? activePet.longitude);
+        const activeCep = activePet.cep || activePet.postalCode || '';
+
+        let candidatePets = allPets;
+        if (Number.isFinite(radiusKm) && radiusKm > 0) {
+          if (Number.isFinite(activeLat) && Number.isFinite(activeLng)) {
+            candidatePets = await listPets({ radiusKm, lat: activeLat, lng: activeLng });
+          } else if (activeCep) {
+            candidatePets = await listPets({ radiusKm, cep: activeCep });
+          }
+        }
+
+        const fallbackCandidates = candidatePets.filter((pet) => {
           if (ownedPetIds.has(Number(pet.id))) return false;
           if (myUserId != null && Number(pet.ownerId) === myUserId) return false;
           if (activePet?.id && Number(pet.id) === Number(activePet.id)) return false;
@@ -167,7 +198,7 @@ export default function MatchDisplay({
         const preferredSex = normalizeText(savedPrefs?.sex || 'oposto');
         const preferredAgeRange = normalizeText(savedPrefs?.ageRange || 'todos');
 
-        const filtered = allPets.filter((pet) => {
+        const filtered = candidatePets.filter((pet) => {
           if (ownedPetIds.has(Number(pet.id))) return false;
           if (myUserId != null && Number(pet.ownerId) === myUserId) return false;
           if (activePet?.id && Number(pet.id) === Number(activePet.id)) return false;
@@ -214,7 +245,13 @@ export default function MatchDisplay({
     fetchPets();
 
     return () => { mounted = false; };
-  }, []);
+  }, [radiusKm, getOppositeSex, normalizeText]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('matchRadiusKm', String(radiusKm));
+    }
+  }, [radiusKm]);
 
   function toAbsoluteUrl(url) {
     return resolveMediaUrl(url) || '';
@@ -427,6 +464,29 @@ export default function MatchDisplay({
                   {selectionIssue}
                 </div>
               )}
+              <div className="mb-4 rounded-xl border border-[#ffe6dc] bg-white/80 px-4 py-3 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[#4a5565]">Raio de distância</p>
+                    <p className="text-xs text-[#6a7282]">Filtra pets próximos do seu</p>
+                  </div>
+                  <div className="text-[#0a0a0a] font-semibold">{radiusKm} km</div>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  step="1"
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(Number(e.target.value))}
+                  className="mt-3 w-full"
+                />
+                {!Number.isFinite(Number(selectedPet?.latitude)) && !selectedPet?.cep && (
+                  <p className="mt-2 text-xs text-[#b4897a]">
+                    Adicione o CEP do pet para habilitar o filtro por distância.
+                  </p>
+                )}
+              </div>
               {/* Card do Pet */}
               <div 
                 className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative group-hover:ring-2 group-hover:ring-[#ffa98f] ring-inset ${
@@ -497,11 +557,13 @@ export default function MatchDisplay({
                   />
 
                   {currentImageUrl && !cardImageFailed ? (
-                    <img
+                    <Image
                       src={currentImageUrl}
                       alt={currentProfile.name || 'Pet'}
-                      className="w-full h-full object-cover"
-                      loading={currentIndex === 0 ? 'eager' : 'lazy'}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 28rem"
+                      className="object-cover"
+                      priority={currentIndex === 0}
                       onError={() => setCardImageFailed(true)}
                     />
                   ) : (
@@ -543,7 +605,14 @@ export default function MatchDisplay({
                   {/* Localização */}
                   <div className="flex items-center gap-2 mb-3">
                     <MapPin className="size-4 text-[#4a5565]" />
-                    <p className="text-sm text-[#4a5565]">{currentProfile.location || 'Localização não informada'}</p>
+                    <p className="text-sm text-[#4a5565]">
+                      {displayLocation}
+                      {Number.isFinite(Number(currentProfile.distanceKm)) && (
+                        <span className="ml-2 text-[#6a7282]">
+                          • {Number(currentProfile.distanceKm).toFixed(1)} km
+                        </span>
+                      )}
+                    </p>
                   </div>
 
                   {/* Descrição */}
@@ -555,7 +624,7 @@ export default function MatchDisplay({
                   <div className="pt-4 border-t border-[#e5e7eb] flex items-center justify-between">
                     <div>
                       <p className="text-xs text-[#6a7282]">Tutor</p>
-                      <p className="text-sm text-[#0a0a0a]">{currentProfile.tutorName || 'Tutor'}</p>
+                      <p className="text-sm text-[#0a0a0a]">{displayTutorName}</p>
                     </div>
                     
                     {currentProfile.hasLikedYou && (
@@ -647,18 +716,24 @@ export default function MatchDisplay({
             <p className="text-[#4a5565] mb-2">
               Você e <span className="font-bold text-[#0a0a0a]">{currentMatch.name || 'este pet'}</span>
             </p>
+            {Number.isFinite(Number(currentMatch?.distanceKm)) && (
+              <p className="text-xs text-[#6a7282] mb-2">
+                Distância aproximada: {Number(currentMatch.distanceKm).toFixed(1)} km
+              </p>
+            )}
             <p className="text-[#4a5565] mb-8">
               demonstraram interesse mútuos!
             </p>
 
             <div className="flex items-center justify-center gap-4 mb-6">
-              <div className="size-20 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100">
+              <div className="size-20 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100 relative">
                 {currentMatchImageUrl && !matchImageFailed ? (
-                  <img
+                  <Image
                     src={currentMatchImageUrl}
                     alt={currentMatch.name || 'Pet'}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    sizes="80px"
+                    className="object-cover"
                     onError={() => setMatchImageFailed(true)}
                   />
                 ) : (
