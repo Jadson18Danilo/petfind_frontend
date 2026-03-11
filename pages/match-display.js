@@ -429,7 +429,7 @@ export default function MatchDisplay({
               )}
               {/* Card do Pet */}
               <div 
-                className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative ${
+                className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative group-hover:ring-2 group-hover:ring-[#ffa98f] ring-inset ${
                   swipeDirection === 'left' ? 'translate-x-[-100vw] opacity-0' : 
                   swipeDirection === 'right' ? 'translate-x-[100vw] opacity-0' : 
                   'translate-x-0 opacity-100'
@@ -447,7 +447,7 @@ export default function MatchDisplay({
                 />
                 
                 {/* Imagem */}
-                <div className="relative h-72 sm:h-96 overflow-hidden rounded-t-2xl">
+                <div className="relative z-10 h-72 sm:h-96 overflow-hidden rounded-t-2xl">
                   {currentProfileImages.length > 0 && (
                     <div className="absolute top-3 left-3 right-3 z-20 flex gap-1.5">
                       {currentProfileImages.map((img, index) => {
@@ -509,7 +509,10 @@ export default function MatchDisplay({
                       Sem foto
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-linear-to-t from-[rgba(0,0,0,0.5)] to-[rgba(0,0,0,0)]" />
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0))' }}
+                  />
                   
                   {/* Badges */}
                   <div className="absolute top-3 left-3">

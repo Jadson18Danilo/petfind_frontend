@@ -183,21 +183,3 @@
 .from-brand-warm-500 { --tw-gradient-from: #ffa98f; }
 .to-brand-warm-600 { --tw-gradient-to: #FFA98F; }
 
-/* Global override: disable gradients and use single brand color */
-[class*="bg-linear-to-"],
-[class*="bg-gradient-to-"] {
-  background-image: none !important;
-  background-color: #FFA98F !important;
-}
-
-[class*="hover:bg-linear-to-"]:hover,
-[class*="hover:bg-gradient-to-"]:hover {
-  background-image: none !important;
-  background-color: #FFA98F !important;
-}
-
-[class*="bg-clip-text"][class*="text-transparent"] {
-  background-image: none !important;
-  color: #FFA98F !important;
-  -webkit-text-fill-color: #FFA98F;
-}
