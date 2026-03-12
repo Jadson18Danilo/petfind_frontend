@@ -25,13 +25,6 @@ export default function MatchDisplay({
   const [error, setError] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectionIssue, setSelectionIssue] = useState('');
-  const [radiusKm, setRadiusKm] = useState(() => {
-    if (typeof window === 'undefined') return 10;
-    const stored = Number(window.localStorage.getItem('matchRadiusKm'));
-    const value = Number.isFinite(stored) && stored > 0 ? stored : 10;
-    return Math.min(value, 20);
-  });
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageProgress, setImageProgress] = useState(0);
@@ -54,6 +47,20 @@ export default function MatchDisplay({
     currentProfile?.User?.name ||
     'Tutor';
   const currentImageUrl = currentProfileImages[currentImageIndex] || '';
+  const selectedPetLat = Number(selectedPet?.latitude ?? selectedPet?.lat ?? selectedPet?.latitude);
+  const selectedPetLng = Number(selectedPet?.longitude ?? selectedPet?.lng ?? selectedPet?.longitude);
+  const currentPetLat = Number(currentProfile?.latitude ?? currentProfile?.lat ?? currentProfile?.latitude);
+  const currentPetLng = Number(currentProfile?.longitude ?? currentProfile?.lng ?? currentProfile?.longitude);
+  const computedDistanceKm =
+    Number.isFinite(selectedPetLat) &&
+    Number.isFinite(selectedPetLng) &&
+    Number.isFinite(currentPetLat) &&
+    Number.isFinite(currentPetLng)
+      ? getDistanceKm(selectedPetLat, selectedPetLng, currentPetLat, currentPetLng)
+      : null;
+  const displayDistanceKm = Number.isFinite(Number(currentProfile?.distanceKm))
+    ? Number(currentProfile.distanceKm)
+    : computedDistanceKm;
   const currentMatchImageUrl = currentMatch ? getImageUrl(currentMatch) : '';
   const hasMoreProfiles = currentIndex < pets.length - 1;
   const noProfiles = !loading && !error && pets.length === 0;
@@ -85,6 +92,19 @@ export default function MatchDisplay({
     if (months <= 12) return 'filhote';
     if (months <= 84) return 'adulto';
     return 'idoso';
+  }
+
+  function getDistanceKm(lat1, lng1, lat2, lng2) {
+    const toRadians = (value) => (value * Math.PI) / 180;
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c;
   }
 
   useEffect(() => {
@@ -165,18 +185,7 @@ export default function MatchDisplay({
         const species = normalizeText(activePet.species || activePet.especie);
         const opposite = getOppositeSex(activePet.sex || activePet.sexo);
 
-        const activeLat = Number(activePet.latitude ?? activePet.lat ?? activePet.latitude);
-        const activeLng = Number(activePet.longitude ?? activePet.lng ?? activePet.longitude);
-        const activeCep = activePet.cep || activePet.postalCode || '';
-
-        let candidatePets = allPets;
-        if (Number.isFinite(radiusKm) && radiusKm > 0) {
-          if (Number.isFinite(activeLat) && Number.isFinite(activeLng)) {
-            candidatePets = await listPets({ radiusKm, lat: activeLat, lng: activeLng });
-          } else if (activeCep) {
-            candidatePets = await listPets({ radiusKm, cep: activeCep });
-          }
-        }
+        const candidatePets = allPets;
 
         const fallbackCandidates = candidatePets.filter((pet) => {
           if (ownedPetIds.has(Number(pet.id))) return false;
@@ -245,13 +254,7 @@ export default function MatchDisplay({
     fetchPets();
 
     return () => { mounted = false; };
-  }, [radiusKm, getOppositeSex, normalizeText]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('matchRadiusKm', String(radiusKm));
-    }
-  }, [radiusKm]);
+  }, [getOppositeSex, normalizeText]);
 
   function toAbsoluteUrl(url) {
     return resolveMediaUrl(url) || '';
@@ -464,29 +467,6 @@ export default function MatchDisplay({
                   {selectionIssue}
                 </div>
               )}
-              <div className="mb-4 rounded-xl border border-[#ffe6dc] bg-white/80 px-4 py-3 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[#4a5565]">Raio de distância</p>
-                    <p className="text-xs text-[#6a7282]">Filtra pets próximos do seu</p>
-                  </div>
-                  <div className="text-[#0a0a0a] font-semibold">{radiusKm} km</div>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="20"
-                  step="1"
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(Number(e.target.value))}
-                  className="mt-3 w-full"
-                />
-                {!Number.isFinite(Number(selectedPet?.latitude)) && !selectedPet?.cep && (
-                  <p className="mt-2 text-xs text-[#b4897a]">
-                    Adicione o CEP do pet para habilitar o filtro por distância.
-                  </p>
-                )}
-              </div>
               {/* Card do Pet */}
               <div 
                 className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative group-hover:ring-2 group-hover:ring-[#ffa98f] ring-inset ${
@@ -607,9 +587,9 @@ export default function MatchDisplay({
                     <MapPin className="size-4 text-[#4a5565]" />
                     <p className="text-sm text-[#4a5565]">
                       {displayLocation}
-                      {Number.isFinite(Number(currentProfile.distanceKm)) && (
+                      {Number.isFinite(displayDistanceKm) && (
                         <span className="ml-2 text-[#6a7282]">
-                          • {Number(currentProfile.distanceKm).toFixed(1)} km
+                          • {Number(displayDistanceKm).toFixed(1)} km
                         </span>
                       )}
                     </p>
