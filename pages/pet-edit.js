@@ -60,6 +60,7 @@ export default function PetEdit({ petData: initialPetData = null }) {
     pedigree: petData?.pedigree || '',
     registroMedico: petData?.registroMedico || '',
     biografia: petData?.biografia || '',
+    cep: petData?.cep || '',
   });
 
   const [registroMedicoFile, setRegistroMedicoFile] = useState(null);
@@ -87,6 +88,7 @@ export default function PetEdit({ petData: initialPetData = null }) {
       pedigree: petData.pedigree || '',
       registroMedico: petData.registroMedico || '',
       biografia: petData.biografia ?? petData.description ?? petData.bio ?? '',
+      cep: petData.cep ?? '',
     });
   }, [petData]);
 
@@ -154,6 +156,7 @@ export default function PetEdit({ petData: initialPetData = null }) {
       sex: formData.sexo || null,
       breed: formData.raca || null,
       description: formData.biografia || null,
+      cep: formData.cep || null,
       mainPhoto: mainPhoto || null,
       additionalPhotos: additionalPhotos.filter(Boolean),
     };
@@ -311,6 +314,10 @@ export default function PetEdit({ petData: initialPetData = null }) {
                   <div className="col-span-2">
                     <label className="label">Biografia</label>
                     <textarea rows={4} placeholder="Conte mais sobre o seu pet..." value={formData.biografia} onChange={(e) => handleChange('biografia', e.target.value)} className="input resize-none" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="label">CEP</label>
+                    <input value={formData.cep} onChange={(e) => handleChange('cep', e.target.value)} className="input" placeholder="00000-000" />
                   </div>
                 </div>
               </div>

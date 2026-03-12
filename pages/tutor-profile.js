@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   ChevronRight,
   Edit,
@@ -285,12 +286,14 @@ export default function PerfilTutor({
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center gap-6">
-              <div className="size-24 rounded-2xl overflow-hidden bg-[#FFF2EA] border border-[#F2D4C8] shrink-0">
+              <div className="size-24 rounded-2xl overflow-hidden bg-[#FFF2EA] border border-[#F2D4C8] shrink-0 relative">
                 {tutor.avatar ? (
-                  <img
+                  <Image
                     src={tutor.avatar}
                     alt="Avatar"
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="96px"
+                    className="object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[#b4897a] text-sm">
@@ -365,12 +368,14 @@ export default function PerfilTutor({
                   >
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="size-16 rounded-xl overflow-hidden bg-[#FFF2EA] border border-[#F2D4C8] shrink-0">
+                        <div className="size-16 rounded-xl overflow-hidden bg-[#FFF2EA] border border-[#F2D4C8] shrink-0 relative">
                           {pet.foto ? (
-                            <img
+                            <Image
                               src={pet.foto}
                               alt={pet.nome}
-                              className="w-full h-full object-cover"
+                              fill
+                              sizes="64px"
+                              className="object-cover"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-xl">
