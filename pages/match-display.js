@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Heart, MessageCircle, User, MapPin, X, Sparkles } from 'lucide-react';
 import { likePet, listMatches } from '../src/services/matches';
 import { listPets } from '../src/services/pets';
 import { getMe } from '../src/services/auth';
 import { resolveMediaUrl } from '../src/services/media';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import Layout from '../src/components/Layout';
 
 const IMAGE_DURATION_MS = 10000;
@@ -24,7 +25,6 @@ export default function MatchDisplay({
   const [error, setError] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [selectionIssue, setSelectionIssue] = useState('');
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageProgress, setImageProgress] = useState(0);
@@ -35,7 +35,32 @@ export default function MatchDisplay({
 
   const currentProfile = pets[currentIndex];
   const currentProfileImages = currentProfile ? getProfileImageUrls(currentProfile) : [];
+  const currentNeighborhood = currentProfile?.neighborhood || currentProfile?.bairro || '';
+  const currentCity = currentProfile?.city || currentProfile?.cidade || '';
+  const currentState = currentProfile?.state || currentProfile?.estado || '';
+  const fallbackLocation = [currentNeighborhood, currentCity, currentState].filter(Boolean).join(', ');
+  const displayLocation = (currentProfile?.location || '').toString().trim() || fallbackLocation || 'Localização não informada';
+  const displayTutorName =
+    (currentProfile?.tutorName || '').toString().trim() ||
+    currentProfile?.tutor?.name ||
+    currentProfile?.owner?.name ||
+    currentProfile?.User?.name ||
+    'Tutor';
   const currentImageUrl = currentProfileImages[currentImageIndex] || '';
+  const selectedPetLat = Number(selectedPet?.latitude ?? selectedPet?.lat ?? selectedPet?.latitude);
+  const selectedPetLng = Number(selectedPet?.longitude ?? selectedPet?.lng ?? selectedPet?.longitude);
+  const currentPetLat = Number(currentProfile?.latitude ?? currentProfile?.lat ?? currentProfile?.latitude);
+  const currentPetLng = Number(currentProfile?.longitude ?? currentProfile?.lng ?? currentProfile?.longitude);
+  const computedDistanceKm =
+    Number.isFinite(selectedPetLat) &&
+    Number.isFinite(selectedPetLng) &&
+    Number.isFinite(currentPetLat) &&
+    Number.isFinite(currentPetLng)
+      ? getDistanceKm(selectedPetLat, selectedPetLng, currentPetLat, currentPetLng)
+      : null;
+  const displayDistanceKm = Number.isFinite(Number(currentProfile?.distanceKm))
+    ? Number(currentProfile.distanceKm)
+    : computedDistanceKm;
   const currentMatchImageUrl = currentMatch ? getImageUrl(currentMatch) : '';
   const hasMoreProfiles = currentIndex < pets.length - 1;
   const noProfiles = !loading && !error && pets.length === 0;
@@ -43,21 +68,21 @@ export default function MatchDisplay({
   const [cardImageFailed, setCardImageFailed] = useState(false);
   const [matchImageFailed, setMatchImageFailed] = useState(false);
 
-  function normalizeText(value) {
+  const normalizeText = useCallback((value) => {
     if (!value) return '';
     return value
       .toString()
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
-  }
+  }, []);
 
-  function getOppositeSex(value) {
+  const getOppositeSex = useCallback((value) => {
     const sex = normalizeText(value);
     if (sex === 'macho') return 'femea';
     if (sex === 'femea') return 'macho';
     return '';
-  }
+  }, [normalizeText]);
 
   function getAgeGroupForPet(pet) {
     const rawAge = Number(pet?.ageMonths ?? pet?.age ?? pet?.idade ?? 0);
@@ -67,6 +92,19 @@ export default function MatchDisplay({
     if (months <= 12) return 'filhote';
     if (months <= 84) return 'adulto';
     return 'idoso';
+  }
+
+  function getDistanceKm(lat1, lng1, lat2, lng2) {
+    const toRadians = (value) => (value * Math.PI) / 180;
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c;
   }
 
   useEffect(() => {
@@ -147,7 +185,9 @@ export default function MatchDisplay({
         const species = normalizeText(activePet.species || activePet.especie);
         const opposite = getOppositeSex(activePet.sex || activePet.sexo);
 
-        const fallbackCandidates = allPets.filter((pet) => {
+        const candidatePets = allPets;
+
+        const fallbackCandidates = candidatePets.filter((pet) => {
           if (ownedPetIds.has(Number(pet.id))) return false;
           if (myUserId != null && Number(pet.ownerId) === myUserId) return false;
           if (activePet?.id && Number(pet.id) === Number(activePet.id)) return false;
@@ -167,7 +207,7 @@ export default function MatchDisplay({
         const preferredSex = normalizeText(savedPrefs?.sex || 'oposto');
         const preferredAgeRange = normalizeText(savedPrefs?.ageRange || 'todos');
 
-        const filtered = allPets.filter((pet) => {
+        const filtered = candidatePets.filter((pet) => {
           if (ownedPetIds.has(Number(pet.id))) return false;
           if (myUserId != null && Number(pet.ownerId) === myUserId) return false;
           if (activePet?.id && Number(pet.id) === Number(activePet.id)) return false;
@@ -214,7 +254,7 @@ export default function MatchDisplay({
     fetchPets();
 
     return () => { mounted = false; };
-  }, []);
+  }, [getOppositeSex, normalizeText]);
 
   function toAbsoluteUrl(url) {
     return resolveMediaUrl(url) || '';
@@ -429,7 +469,7 @@ export default function MatchDisplay({
               )}
               {/* Card do Pet */}
               <div 
-                className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative ${
+                className={`group bg-white rounded-2xl shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] transition-all duration-300 relative group-hover:ring-2 group-hover:ring-[#ffa98f] ring-inset ${
                   swipeDirection === 'left' ? 'translate-x-[-100vw] opacity-0' : 
                   swipeDirection === 'right' ? 'translate-x-[100vw] opacity-0' : 
                   'translate-x-0 opacity-100'
@@ -447,7 +487,7 @@ export default function MatchDisplay({
                 />
                 
                 {/* Imagem */}
-                <div className="relative h-72 sm:h-96 overflow-hidden rounded-t-2xl">
+                <div className="relative z-10 h-72 sm:h-96 overflow-hidden rounded-t-2xl">
                   {currentProfileImages.length > 0 && (
                     <div className="absolute top-3 left-3 right-3 z-20 flex gap-1.5">
                       {currentProfileImages.map((img, index) => {
@@ -497,11 +537,13 @@ export default function MatchDisplay({
                   />
 
                   {currentImageUrl && !cardImageFailed ? (
-                    <img
+                    <Image
                       src={currentImageUrl}
                       alt={currentProfile.name || 'Pet'}
-                      className="w-full h-full object-cover"
-                      loading={currentIndex === 0 ? 'eager' : 'lazy'}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 28rem"
+                      className="object-cover"
+                      priority={currentIndex === 0}
                       onError={() => setCardImageFailed(true)}
                     />
                   ) : (
@@ -509,7 +551,10 @@ export default function MatchDisplay({
                       Sem foto
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-linear-to-t from-[rgba(0,0,0,0.5)] to-[rgba(0,0,0,0)]" />
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0))' }}
+                  />
                   
                   {/* Badges */}
                   <div className="absolute top-3 left-3">
@@ -540,7 +585,14 @@ export default function MatchDisplay({
                   {/* Localização */}
                   <div className="flex items-center gap-2 mb-3">
                     <MapPin className="size-4 text-[#4a5565]" />
-                    <p className="text-sm text-[#4a5565]">{currentProfile.location || 'Localização não informada'}</p>
+                    <p className="text-sm text-[#4a5565]">
+                      {displayLocation}
+                      {Number.isFinite(displayDistanceKm) && (
+                        <span className="ml-2 text-[#6a7282]">
+                          • {Number(displayDistanceKm).toFixed(1)} km
+                        </span>
+                      )}
+                    </p>
                   </div>
 
                   {/* Descrição */}
@@ -552,7 +604,7 @@ export default function MatchDisplay({
                   <div className="pt-4 border-t border-[#e5e7eb] flex items-center justify-between">
                     <div>
                       <p className="text-xs text-[#6a7282]">Tutor</p>
-                      <p className="text-sm text-[#0a0a0a]">{currentProfile.tutorName || 'Tutor'}</p>
+                      <p className="text-sm text-[#0a0a0a]">{displayTutorName}</p>
                     </div>
                     
                     {currentProfile.hasLikedYou && (
@@ -644,18 +696,24 @@ export default function MatchDisplay({
             <p className="text-[#4a5565] mb-2">
               Você e <span className="font-bold text-[#0a0a0a]">{currentMatch.name || 'este pet'}</span>
             </p>
+            {Number.isFinite(Number(currentMatch?.distanceKm)) && (
+              <p className="text-xs text-[#6a7282] mb-2">
+                Distância aproximada: {Number(currentMatch.distanceKm).toFixed(1)} km
+              </p>
+            )}
             <p className="text-[#4a5565] mb-8">
               demonstraram interesse mútuos!
             </p>
 
             <div className="flex items-center justify-center gap-4 mb-6">
-              <div className="size-20 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100">
+              <div className="size-20 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100 relative">
                 {currentMatchImageUrl && !matchImageFailed ? (
-                  <img
+                  <Image
                     src={currentMatchImageUrl}
                     alt={currentMatch.name || 'Pet'}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    sizes="80px"
+                    className="object-cover"
                     onError={() => setMatchImageFailed(true)}
                   />
                 ) : (

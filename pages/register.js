@@ -1,41 +1,125 @@
-import { ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
+/* eslint-disable @next/next/no-img-element */
+import { ArrowLeft, Camera } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { registerUser } from '../src/services/auth';
 import { useRouter } from 'next/router';
 import Layout from '../src/components/Layout';
 
 export default function Register() {
   const router = useRouter();
+  const avatarInputRef = useRef(null);
+  const [step, setStep] = useState(1);
 
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
     senha: '',
     confirmarSenha: '',
+    sexo: '',
+    idade: '',
     telefone: '',
-    estado: '',
-    siglaEstado: ''
+    cep: '',
+    numero: '',
+    avatar: null,
+    avatarPreview: '',
   });
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const resetForm = () => {
+    setFormData({
+      nome: '',
+      email: '',
+      senha: '',
+      confirmarSenha: '',
+      sexo: '',
+      idade: '',
+      telefone: '',
+      cep: '',
+      numero: '',
+      avatar: null,
+      avatarPreview: '',
+    });
+    setStep(1);
+  };
+
+  const validateStepOne = () => {
+    if (!formData.nome.trim() || !formData.email.trim() || !formData.senha || !formData.confirmarSenha) {
+      setError('Preencha todos os campos da fase 1.');
+      return false;
+    }
+
+    if (formData.senha !== formData.confirmarSenha) {
+      setError('As senhas não coincidem.');
+      return false;
+    }
+
+    if (formData.senha.length < 6) {
+      setError('A senha deve ter no mínimo 6 caracteres.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleNextStep = () => {
+    setError('');
+    if (!validateStepOne()) return;
+    setStep(2);
+  };
+
+  const handleAvatarChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const preview = URL.createObjectURL(file);
+    setFormData((prev) => ({
+      ...prev,
+      avatar: file,
+      avatarPreview: preview,
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
 
-    if (formData.senha !== formData.confirmarSenha) {
-      setError('As senhas não coincidem.');
+    if (!validateStepOne()) {
       return;
     }
 
     setLoading(true);
     try {
-      await registerUser({ name: formData.nome, email: formData.email, password: formData.senha });
+      if (formData.avatar) {
+        const payload = new FormData();
+        payload.append('name', formData.nome.trim());
+        payload.append('email', formData.email.trim());
+        payload.append('password', formData.senha);
+        payload.append('sexo', formData.sexo || '');
+        payload.append('idade', formData.idade || '');
+        payload.append('telefone', formData.telefone || '');
+        payload.append('cep', formData.cep || '');
+        payload.append('numero', formData.numero || '');
+        payload.append('avatar', formData.avatar);
+        await registerUser(payload);
+      } else {
+        await registerUser({
+          name: formData.nome.trim(),
+          email: formData.email.trim(),
+          password: formData.senha,
+          sexo: formData.sexo || null,
+          idade: formData.idade ? Number(formData.idade) : null,
+          telefone: formData.telefone || null,
+          cep: formData.cep || null,
+          numero: formData.numero || null,
+        });
+      }
+
       setMessage('Cadastro realizado. Você será redirecionado para entrar.');
-      setFormData({ nome: '', email: '', senha: '', confirmarSenha: '', telefone: '', estado: '', siglaEstado: '' });
+      resetForm();
       setTimeout(() => router.push('/login'), 1200);
     } catch (err) {
       setError(err?.response?.data?.error || 'Falha no cadastro');
@@ -58,7 +142,7 @@ export default function Register() {
         <div className="space-y-8">
           <button
             onClick={onNavigateToHome}
-            className="btn-text px-2 py-1 text-[#0a0a0a] hover:bg-transparent"
+            className="btn-text text-[#0a0a0a]"
           >
             <ArrowLeft className="size-4" />
             <span className="text-sm">Voltar</span>
@@ -70,54 +154,165 @@ export default function Register() {
           </div>
 
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 ">
+            <div className="mb-6">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="font-semibold text-[#4a5565]">Etapa {step} de 2</span>
+                <span className="text-[#ff8566]">{step === 1 ? 'Começando' : 'Quase lá'}</span>
+              </div>
+              <div className="h-2 rounded-full bg-[#ffe6dc] overflow-hidden">
+                <div
+                  className="h-full bg-linear-to-r from-[#ffa98f] to-[#ff8566] transition-all duration-300"
+                  style={{ width: step === 1 ? '50%' : '100%' }}
+                />
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-5">
-              <input
-                type="text"
-                placeholder="Nome completo"
-                value={formData.nome}
-                onChange={(e) => handleChange('nome', e.target.value)}
-                className="input px-4 py-3"
-                required
-              />
+              {step === 1 ? (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Nome completo"
+                    value={formData.nome}
+                    onChange={(e) => handleChange('nome', e.target.value)}
+                    className="input px-4 py-3"
+                    required
+                  />
 
-              <input
-                type="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                className="input px-4 py-3"
-                required
-              />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    className="input px-4 py-3"
+                    required
+                  />
 
-              <input
-                type="password"
-                placeholder="Senha"
-                value={formData.senha}
-                onChange={(e) => handleChange('senha', e.target.value)}
-                className="input px-4 py-3"
-                minLength={6}
-                required
-              />
+                  <input
+                    type="password"
+                    placeholder="Senha"
+                    value={formData.senha}
+                    onChange={(e) => handleChange('senha', e.target.value)}
+                    className="input px-4 py-3"
+                    minLength={6}
+                    required
+                  />
 
-              <input
-                type="password"
-                placeholder="Confirmar senha"
-                value={formData.confirmarSenha}
-                onChange={(e) => handleChange('confirmarSenha', e.target.value)}
-                className="input px-4 py-3"
-                minLength={6}
-                required
-              />
+                  <input
+                    type="password"
+                    placeholder="Confirmar senha"
+                    value={formData.confirmarSenha}
+                    onChange={(e) => handleChange('confirmarSenha', e.target.value)}
+                    className="input px-4 py-3"
+                    minLength={6}
+                    required
+                  />
 
-              <button
-                type="submit"
-                className="btn w-full py-3"
-                disabled={loading}
-                aria-disabled={loading}
-                aria-busy={loading}
-              >
-                {loading ? 'Criando...' : 'Criar conta'}
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleNextStep}
+                    className="btn w-full py-3"
+                  >
+                    Próxima etapa
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-[#4a5565]">Foto do Tutor</p>
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="w-full rounded-2xl border-2 border-dashed border-[#f2d4c8] bg-[#fff7f3] overflow-hidden flex items-center justify-center"
+                        style={{ aspectRatio: '4 / 3' }}
+                      >
+                        {formData.avatarPreview ? (
+                          <img src={formData.avatarPreview} alt="Prévia do tutor" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="text-center text-[#b4897a]">
+                            <Camera className="size-8 mx-auto mb-2" />
+                            <span className="text-xs">Adicionar foto</span>
+                          </div>
+                        )}
+                      </button>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <select
+                        value={formData.sexo}
+                        onChange={(e) => handleChange('sexo', e.target.value)}
+                        className="input px-4 py-3"
+                      >
+                        <option value="">Sexo</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Feminino">Feminino</option>
+                        <option value="Outro">Outro</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Idade"
+                        value={formData.idade}
+                        onChange={(e) => handleChange('idade', e.target.value)}
+                        className="input px-4 py-3"
+                      />
+                    </div>
+
+                    <input
+                      type="tel"
+                      placeholder="Telefone"
+                      value={formData.telefone}
+                      onChange={(e) => handleChange('telefone', e.target.value)}
+                      className="input px-4 py-3"
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="CEP"
+                        value={formData.cep}
+                        onChange={(e) => handleChange('cep', e.target.value)}
+                        className="input px-4 py-3"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Número"
+                        value={formData.numero}
+                        onChange={(e) => handleChange('numero', e.target.value)}
+                        className="input px-4 py-3"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="btn-secondary py-3"
+                      disabled={loading}
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn py-3"
+                      disabled={loading}
+                      aria-disabled={loading}
+                      aria-busy={loading}
+                    >
+                      {loading ? 'Salvando...' : 'Finalizar cadastro'}
+                    </button>
+                  </div>
+                </>
+              )}
 
               <div className="text-center text-sm">
                 Já tem uma conta?{' '}
@@ -131,6 +326,12 @@ export default function Register() {
               </div>
             </form>
 
+            {step === 2 && !error && (
+              <div className="mt-4 text-green-700 text-sm">
+                Fase 1 concluída! Complete os dados do tutor.
+              </div>
+            )}
+
             {message && <p className="mt-3 text-green-600" role="status" aria-live="polite">{message}</p>}
             {error && <p className="mt-3 text-red-600" role="alert" aria-live="assertive">{error}</p>}
           </div>
@@ -140,6 +341,8 @@ export default function Register() {
     </Layout>
   );
 }
+
+
 
 
 
