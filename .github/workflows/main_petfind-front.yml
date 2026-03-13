@@ -42,12 +42,12 @@ jobs:
         with:
           name: node-app
           path: |
-            .next
+            .next/standalone
+            .next/static
             public
             package.json
             package-lock.json
             next.config.js
-            node_modules
 
   deploy:
     runs-on: ubuntu-latest
