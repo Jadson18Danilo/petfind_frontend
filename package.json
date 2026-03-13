@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 5423",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "start": "node scripts/start-standalone.js",
     "lint": "next lint"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "sharp": "^0.34.5",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
