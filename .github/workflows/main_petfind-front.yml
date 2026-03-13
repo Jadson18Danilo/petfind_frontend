@@ -37,9 +37,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Prune dev dependencies
-        run: npm prune --omit=dev
-
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
