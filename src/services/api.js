@@ -17,6 +17,8 @@ api.interceptors.response.use(
     const skipAuthRedirect = Boolean(error?.config?.skipAuthRedirect);
     const isNetworkError = !error?.response;
     const currentBaseURL = error?.config?.baseURL || api.defaults.baseURL;
+    const requestUrl = String(error?.config?.url || '');
+    const isApiPathRequest = requestUrl.startsWith('/api/');
     const canRetryWithFallback =
       typeof window !== 'undefined' &&
       isNetworkError &&
@@ -24,7 +26,24 @@ api.interceptors.response.use(
       currentBaseURL === primaryBaseURL &&
       !error?.config?._retryWithFallback;
 
+    const canRetry404WithFallback =
+      typeof window !== 'undefined' &&
+      status === 404 &&
+      isApiPathRequest &&
+      Boolean(fallbackBaseURL) &&
+      currentBaseURL === primaryBaseURL &&
+      !error?.config?._retryWithFallback;
+
     if (canRetryWithFallback) {
+      api.defaults.baseURL = fallbackBaseURL;
+      return api.request({
+        ...error.config,
+        baseURL: fallbackBaseURL,
+        _retryWithFallback: true,
+      });
+    }
+
+    if (canRetry404WithFallback) {
       api.defaults.baseURL = fallbackBaseURL;
       return api.request({
         ...error.config,
