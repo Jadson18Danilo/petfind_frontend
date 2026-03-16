@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { showToast } from './toast';
 
-const primaryBaseURL = process.env.NEXT_PUBLIC_API_URL || '';
-const fallbackBaseURL = process.env.NEXT_PUBLIC_API_FALLBACK_URL || '';
+const primaryBaseURL = process.env.NEXT_PUBLIC_API_URL;
+const fallbackBaseURL = process.env.NEXT_PUBLIC_API_FALLBACK_URL;
 const resolvedBaseURL = primaryBaseURL || fallbackBaseURL;
 
 const api = axios.create({
