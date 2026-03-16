@@ -34,21 +34,8 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
-      - name: Validate frontend env vars
-        run: |
-          if [ -z "$NEXT_PUBLIC_API_URL" ]; then
-            echo "ERRO: Defina o secret NEXT_PUBLIC_API_URL no GitHub Actions."
-            exit 1
-          fi
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-
       - name: Build
         run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_API_FALLBACK_URL: ${{ secrets.NEXT_PUBLIC_API_FALLBACK_URL }}
-          NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS: ${{ secrets.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS }}
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
