@@ -4,7 +4,7 @@ import api from './api';
 let socketInstance = null;
 
 function resolveSocketUrl() {
-  return api.defaults.baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  return api.defaults.baseURL || process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_FALLBACK_URL;
 }
 
 export function getChatSocket() {

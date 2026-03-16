@@ -1,7 +1,8 @@
 import api from './api';
 
 function getApiBaseUrl() {
-  return (api?.defaults?.baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+  const baseUrl = api?.defaults?.baseURL || process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_FALLBACK_URL || '';
+  return baseUrl.replace(/\/$/, '');
 }
 
 export function resolveMediaUrl(value) {
