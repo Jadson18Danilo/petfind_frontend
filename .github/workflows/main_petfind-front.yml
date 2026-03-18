@@ -39,8 +39,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_API_FALLBACK_URL: ${{ vars.NEXT_PUBLIC_API_FALLBACK_URL || secrets.NEXT_PUBLIC_API_FALLBACK_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL || 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net' }}
+          NEXT_PUBLIC_API_FALLBACK_URL: ${{ vars.NEXT_PUBLIC_API_FALLBACK_URL || secrets.NEXT_PUBLIC_API_FALLBACK_URL || 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net' }}
           NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS: ${{ vars.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS || secrets.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS }}
 
       - name: Upload artifact for deployment job
