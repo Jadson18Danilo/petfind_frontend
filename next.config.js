@@ -30,10 +30,14 @@ const externalImageHosts = (process.env.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS || 'img
     pathname: '/**',
   }));
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   images: {
+    // Avoid certificate-chain issues from remote image providers during local dev.
+    unoptimized: isDevelopment,
     remotePatterns: [...apiImagePatterns, ...externalImageHosts],
   },
 }

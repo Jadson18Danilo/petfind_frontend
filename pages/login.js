@@ -13,6 +13,21 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  function resolveLoginErrorMessage(err) {
+    const apiMessage = err?.response?.data?.error;
+    if (apiMessage) return apiMessage;
+
+    const status = err?.response?.status;
+    if (status === 401) return "Credenciais invalidas.";
+
+    const isNetworkError = !err?.response;
+    if (isNetworkError) {
+      return "Nao foi possivel conectar ao servidor local. Verifique se o backend esta ativo em http://localhost:4000 ou http://localhost:4001.";
+    }
+
+    return "Falha no login";
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     if (isSubmitting) return;
@@ -36,7 +51,7 @@ export default function Login() {
 
       router.push(destination);
     } catch (err) {
-      setError(err?.response?.data?.error || "Falha no login");
+      setError(resolveLoginErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

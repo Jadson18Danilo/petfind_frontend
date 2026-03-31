@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { showToast } from './toast';
 
-const DEFAULT_API_URL = 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net';
+const DEFAULT_API_URL = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:4000'
+  : 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net';
 const KNOWN_INVALID_HOSTS = new Set([
   'petfind-gtgne8bjeth7d2au.canadacentral-01.azurewebsites.net',
 ]);
