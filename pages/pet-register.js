@@ -549,7 +549,7 @@ export default function PetRegister({
                   <div className="space-y-2">
                     <label htmlFor="tamanho" className="block text-sm font-medium text-[#0a0a0a]">
                       <Ruler className="inline size-4 mr-1.5 text-[#FFAD93]" />
-                      Tamanho *
+                      Porte *
                     </label>
                     <div className="relative">
                       <select id="tamanho" value={formData.tamanho} onChange={(event) => handleChange('tamanho', event.target.value)} className={getSelectClassName('tamanho')} required>
