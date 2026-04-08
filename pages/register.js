@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { ArrowLeft, Camera } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { registerUser } from '../src/services/auth';
 import { useRouter } from 'next/router';
 import Layout from '../src/components/Layout';
@@ -19,6 +19,7 @@ export default function Register() {
     idade: '',
     telefone: '',
     cep: '',
+    logradouro: '',
     numero: '',
     avatar: null,
     avatarPreview: '',
@@ -27,6 +28,7 @@ export default function Register() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingAddress, setLoadingAddress] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -38,12 +40,47 @@ export default function Register() {
       idade: '',
       telefone: '',
       cep: '',
+      logradouro: '',
       numero: '',
       avatar: null,
       avatarPreview: '',
     });
     setStep(1);
   };
+
+  useEffect(() => {
+    const cepOnlyDigits = formData.cep.replace(/\D/g, '');
+
+    if (!cepOnlyDigits) {
+      setFormData((prev) => ({ ...prev, logradouro: '' }));
+      setLoadingAddress(false);
+      return;
+    }
+
+    if (cepOnlyDigits.length !== 8) {
+      setLoadingAddress(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setLoadingAddress(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepOnlyDigits}/json/`);
+        const data = await response.json();
+
+        setFormData((prev) => ({
+          ...prev,
+          logradouro: data?.erro ? '' : (data?.logradouro || ''),
+        }));
+      } catch {
+        setFormData((prev) => ({ ...prev, logradouro: '' }));
+      } finally {
+        setLoadingAddress(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.cep]);
 
   const validateStepOne = () => {
     if (!formData.nome.trim() || !formData.email.trim() || !formData.senha || !formData.confirmarSenha) {
@@ -290,6 +327,14 @@ export default function Register() {
                         className="input px-4 py-3"
                       />
                     </div>
+
+                    <input
+                      type="text"
+                      placeholder={loadingAddress ? 'Buscando logradouro...' : 'Logradouro'}
+                      value={formData.logradouro}
+                      readOnly
+                      className="input px-4 py-3 bg-gray-50 text-[#4a5565]"
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
