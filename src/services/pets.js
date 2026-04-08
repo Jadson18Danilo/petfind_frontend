@@ -6,6 +6,7 @@ function normalizePet(pet) {
 
   const name = pet.name ?? pet.nome ?? '';
   const age = pet.age ?? pet.ageMonths ?? pet.idade ?? '';
+  const birthDate = pet.birthDate ?? '';
   const description = pet.description ?? pet.bio ?? pet.biografia ?? '';
   const rawLocation = typeof pet.location === 'string' ? pet.location.trim() : '';
   const location = rawLocation || [pet.neighborhood, pet.city, pet.state].filter(Boolean).join(', ');
@@ -21,6 +22,7 @@ function normalizePet(pet) {
     ...pet,
     name,
     age,
+    birthDate,
     description,
     location,
     tutorName,

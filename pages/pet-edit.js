@@ -6,6 +6,34 @@ import { useRouter } from 'next/router';
 import { listPets, updatePet } from '../src/services/pets';
 import { showToast } from '../src/services/toast';
 
+function extractBirthDateFromDescription(description) {
+  if (!description || typeof description !== 'string') return '';
+  const match = description.match(/Data de nascimento:\s*(\d{4}-\d{2}-\d{2})/i);
+  return match?.[1] || '';
+}
+
+function stripBirthDateFromDescription(description) {
+  if (!description || typeof description !== 'string') return '';
+  return description
+    .split('\n')
+    .filter((line) => !line.trim().toLowerCase().startsWith('data de nascimento:'))
+    .join('\n')
+    .trim();
+}
+
+function getAgeInMonthsFromDate(birthDate) {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let months = (today.getFullYear() - birth.getFullYear()) * 12;
+  months += today.getMonth() - birth.getMonth();
+
+  if (today.getDate() < birth.getDate()) months -= 1;
+  return months >= 0 ? months : null;
+}
+
 export default function PetEdit({ petData: initialPetData = null }) {
   const router = useRouter();
   const petId = router.query.id ? Number(router.query.id) : null;
@@ -52,6 +80,7 @@ export default function PetEdit({ petData: initialPetData = null }) {
   const [formData, setFormData] = useState({
     nome: petData?.nome || '',
     especie: petData?.especie || 'cachorro',
+    dataNascimento: '',
     idade: petData?.idade || '',
     sexo: petData?.sexo || 'macho',
     raca: petData?.raca || '',
@@ -69,6 +98,9 @@ export default function PetEdit({ petData: initialPetData = null }) {
   useEffect(() => {
     if (!petData) return;
 
+    const descriptionText = petData.description ?? petData.bio ?? petData.biografia ?? '';
+    const parsedBirthDate = petData.birthDate || extractBirthDateFromDescription(descriptionText);
+
     const nextMainPhoto = petData.mainPhoto || petData.image || petData.imageUrl || null;
     const nextAdditionalPhotos = Array.isArray(petData.additionalPhotos)
       ? [...petData.additionalPhotos, ...Array(4 - petData.additionalPhotos.length).fill(null)].slice(0, 4)
@@ -80,6 +112,7 @@ export default function PetEdit({ petData: initialPetData = null }) {
     setFormData({
       nome: petData.nome ?? petData.name ?? '',
       especie: petData.especie ?? petData.species ?? 'cachorro',
+      dataNascimento: parsedBirthDate,
       idade: String(petData.idade ?? petData.age ?? petData.ageMonths ?? ''),
       sexo: petData.sexo ?? petData.sex ?? 'macho',
       raca: petData.raca ?? petData.breed ?? '',
@@ -87,7 +120,7 @@ export default function PetEdit({ petData: initialPetData = null }) {
       breedingEnabled: Boolean(petData.breedingEnabled),
       pedigree: petData.pedigree || '',
       registroMedico: petData.registroMedico || '',
-      biografia: petData.biografia ?? petData.description ?? petData.bio ?? '',
+      biografia: stripBirthDateFromDescription(descriptionText),
       cep: petData.cep ?? '',
     });
   }, [petData]);
@@ -149,13 +182,22 @@ export default function PetEdit({ petData: initialPetData = null }) {
 
     setIsSaving(true);
 
+    const ageMonthsFromDate = getAgeInMonthsFromDate(formData.dataNascimento);
+    const fallbackAgeMonths = formData.idade === '' ? null : Number(formData.idade);
+    const ageMonthsToSave = Number.isInteger(ageMonthsFromDate) ? ageMonthsFromDate : fallbackAgeMonths;
+
+    const descriptionLines = [];
+    if (formData.biografia?.trim()) descriptionLines.push(formData.biografia.trim());
+    if (formData.dataNascimento) descriptionLines.push(`Data de nascimento: ${formData.dataNascimento}`);
+
     const payload = {
       name: formData.nome || '',
       species: formData.especie || '',
-      ageMonths: formData.idade === '' ? null : Number(formData.idade),
+      ageMonths: Number.isFinite(ageMonthsToSave) ? ageMonthsToSave : null,
+      birthDate: formData.dataNascimento || null,
       sex: formData.sexo || null,
       breed: formData.raca || null,
-      description: formData.biografia || null,
+      description: descriptionLines.length ? descriptionLines.join('\n\n') : null,
       cep: formData.cep || null,
       mainPhoto: mainPhoto || null,
       additionalPhotos: additionalPhotos.filter(Boolean),
@@ -266,6 +308,16 @@ export default function PetEdit({ petData: initialPetData = null }) {
                   <div>
                     <label className="label">Idade (meses)</label>
                     <input value={formData.idade} onChange={(e) => handleChange('idade', e.target.value)} className="input" placeholder="0" />
+                  </div>
+
+                  <div>
+                    <label className="label">Data de nascimento</label>
+                    <input
+                      type="date"
+                      value={formData.dataNascimento}
+                      onChange={(e) => handleChange('dataNascimento', e.target.value)}
+                      className="input"
+                    />
                   </div>
 
                   <div>
