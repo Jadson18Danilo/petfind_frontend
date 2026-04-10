@@ -6,6 +6,30 @@ export async function likePet(toPetId, fromPetId) {
   return response.data;
 }
 
+export async function openDirectChat(toPetId, fromPetId) {
+  const response = await api.post(
+    '/api/matches/direct',
+    { toPetId, fromPetId },
+    { withCredentials: true }
+  );
+  return response.data;
+}
+
+export async function listReceivedLikes(toPetId) {
+  if (!toPetId) return [];
+  const response = await api.get(`/api/pets/${toPetId}/like/received`, { withCredentials: true });
+  const data = response.data;
+  if (!Array.isArray(data)) return [];
+
+  return data.map((pet) => ({
+    ...pet,
+    image: resolveMediaUrl(pet?.image),
+    imageUrl: resolveMediaUrl(pet?.imageUrl),
+    mainPhoto: resolveMediaUrl(pet?.mainPhoto),
+    additionalPhotos: resolveMediaList(pet?.additionalPhotos),
+  }));
+}
+
 export async function listMatches() {
   const response = await api.get('/api/matches', { withCredentials: true });
   const data = response.data;

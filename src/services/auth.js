@@ -49,3 +49,11 @@ export async function updateMe(payload) {
   }
   return me;
 }
+
+export async function getMyAccess() {
+  const response = await api.get('/api/me/access', {
+    withCredentials: true,
+    skipAuthRedirect: true,
+  });
+  return response.data;
+}
