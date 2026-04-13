@@ -1,27 +1,213 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
+  Activity,
+  Award,
+  Calendar,
+  ChevronLeft,
   ChevronRight,
-  Edit,
+  Dna,
+  Edit2,
+  FileText,
+  Heart,
   LogOut,
+  Mail,
+  MoreVertical,
+  Phone,
   Plus,
   Settings,
+  Share2,
+  Shield,
+  Syringe,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
-import Layout from "../src/components/Layout";
 import { useRouter } from "next/router";
+import Header from "../src/components/Header";
 import { getMe, logoutUser } from "../src/services/auth";
 import { deletePet, listPets } from "../src/services/pets";
 import { showToast } from "../src/services/toast";
 
+function parseListField(text) {
+  if (!text) return [];
+  return text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseDescription(description) {
+  const parsed = {
+    about: "",
+    dataNascimento: "",
+    peso: "",
+    cor: "",
+    tamanho: "",
+    porte: "",
+    temperamento: [],
+    vacinacao: [],
+    genetica: [],
+    alergias: [],
+    medicamentos: [],
+    objetivo: "",
+    pedigreePai: "",
+    pedigreeMae: "",
+    pedigreeVerificado: false,
+    ninhadas: "",
+    ultimaReproducao: "",
+    observacoesReproducao: "",
+  };
+
+  if (!description || typeof description !== "string") return parsed;
+
+  const fullText = String(description).replace(/\r/g, "").trim();
+
+  const blocks = fullText.split("\n\n").map((part) => part.trim()).filter(Boolean);
+  parsed.about = blocks[0] || "";
+
+  const joined = blocks.join(" | ");
+  const parts = joined.split("|").map((item) => item.trim()).filter(Boolean);
+
+  const getValueByLabel = (text, labels) => {
+    for (const label of labels) {
+      const regex = new RegExp(`^${label}\\s*:\\s*(.+)$`, "i");
+      const match = text.match(regex);
+      if (match?.[1]) return match[1].trim();
+    }
+    return "";
+  };
+
+  parts.forEach((item) => {
+    const dataNascimento = getValueByLabel(item, ["Data de nascimento"]);
+    if (dataNascimento) parsed.dataNascimento = dataNascimento;
+
+    const peso = getValueByLabel(item, ["Peso"]);
+    if (peso) parsed.peso = peso;
+
+    const cor = getValueByLabel(item, ["Cor"]);
+    if (cor) parsed.cor = cor;
+
+    const tamanho = getValueByLabel(item, ["Tamanho"]);
+    if (tamanho) parsed.tamanho = tamanho;
+
+    const porte = getValueByLabel(item, ["Porte"]);
+    if (porte) parsed.porte = porte;
+
+    const temperamento = getValueByLabel(item, ["Temperamento"]);
+    if (temperamento) parsed.temperamento = parseListField(temperamento);
+
+    const vacinacao = getValueByLabel(item, ["Vacinação", "Vacinacao"]);
+    if (vacinacao) parsed.vacinacao = parseListField(vacinacao);
+
+    const genetica = getValueByLabel(item, ["Genética", "Genetica"]);
+    if (genetica) parsed.genetica = parseListField(genetica);
+
+    const alergias = getValueByLabel(item, ["Alergias"]);
+    if (alergias) parsed.alergias = parseListField(alergias);
+
+    const medicamentos = getValueByLabel(item, ["Medicamentos"]);
+    if (medicamentos) parsed.medicamentos = parseListField(medicamentos);
+
+    const objetivo = getValueByLabel(item, ["Objetivo"]);
+    if (objetivo) parsed.objetivo = objetivo;
+
+    const pai = getValueByLabel(item, ["Pai"]);
+    if (pai) parsed.pedigreePai = pai;
+
+    const mae = getValueByLabel(item, ["Mãe", "Mae"]);
+    if (mae) parsed.pedigreeMae = mae;
+
+    const pedigreeVerificado = getValueByLabel(item, ["Pedigree verificado"]);
+    if (pedigreeVerificado) parsed.pedigreeVerificado = pedigreeVerificado.toLowerCase().includes("sim");
+
+    const ninhadas = getValueByLabel(item, ["Ninhadas"]);
+    if (ninhadas) parsed.ninhadas = ninhadas;
+
+    const ultimaReproducao = getValueByLabel(item, ["Última reprodução", "Ultima reproducao", "Ultima reprodução"]);
+    if (ultimaReproducao) parsed.ultimaReproducao = ultimaReproducao;
+
+    const observacoes = getValueByLabel(item, ["Obs"]);
+    if (observacoes) parsed.observacoesReproducao = observacoes;
+  });
+
+  const extractAnywhere = (regex) => {
+    const match = fullText.match(regex);
+    return match?.[1] ? match[1].trim() : "";
+  };
+
+  if (!parsed.dataNascimento) {
+    parsed.dataNascimento = extractAnywhere(/\bdata\s+de\s+nascimento\b\s*[:=-]?\s*(\d{4}-\d{2}-\d{2})/i);
+  }
+
+  if (!parsed.peso) {
+    parsed.peso = extractAnywhere(/\bpeso\b\s*[:=-]?\s*([^|\n]+)/i);
+  }
+
+  if (!parsed.cor) {
+    parsed.cor = extractAnywhere(/\bcor\b\s*[:=-]?\s*([^|\n]+)/i);
+  }
+
+  if (!parsed.tamanho) {
+    parsed.tamanho = extractAnywhere(/\btamanho\b\s*[:=-]?\s*([^|\n]+)/i);
+  }
+
+  if (!parsed.porte) {
+    parsed.porte = extractAnywhere(/\bporte\b\s*[:=-]?\s*([^|\n]+)/i);
+  }
+
+  if (parsed.about) {
+    const cleanedAbout = parsed.about
+      .replace(/\b(data\s+de\s+nascimento|peso|cor|tamanho|porte|temperamento|objetivo|pai|m[ãa]e|pedigree\s+verificado|ninhadas|[úu]ltima\s+reprodu[cç][ãa]o|obs)\b\s*[:=-].*$/i, "")
+      .trim();
+    parsed.about = cleanedAbout || parsed.about;
+  }
+
+  return parsed;
+}
+
+function formatBirthDate(ageMonths) {
+  const months = Number(ageMonths);
+  if (!Number.isFinite(months)) return "";
+  const date = new Date();
+  date.setMonth(date.getMonth() - months);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForDisplay(value) {
+  if (!value || typeof value !== "string") return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const onlyDate = value.slice(0, 10);
+    const [year, month, day] = onlyDate.split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("pt-BR");
+}
+
 export default function PerfilTutor({
   onNavigateToMatches,
-  onNavigateToChat,
-  onNavigateToPerfil,
-  onNavigateToHome,
   onNavigateToEditarPet,
   onNavigateToEditarTutor,
-  petData,
+  onEditProfile,
+  onSettings,
+  onLogout,
+  onNavigateToCadastrarPet,
   tutorData,
 }) {
   const router = useRouter();
@@ -29,7 +215,16 @@ export default function PerfilTutor({
   const [me, setMe] = useState(null);
   const [pets, setPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [petMenuOpen, setPetMenuOpen] = useState(null);
+  const [petMenuPosition, setPetMenuPosition] = useState({ top: 0, left: 0 });
   const [confirmAction, setConfirmAction] = useState(null);
+
+  const tutorMenuRef = useRef(null);
+  const petMenuRefs = useRef({});
+  const petMenuLayerRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -44,25 +239,22 @@ export default function PerfilTutor({
         const ownedPets = Array.isArray(allPets)
           ? allPets.filter((pet) => pet.ownerId === meData?.id)
           : [];
+
         setPets(ownedPets);
 
-        const storedId =
-          typeof window !== "undefined"
-            ? Number(window.localStorage.getItem("activePetId"))
-            : null;
-        const hasStored =
-          storedId && ownedPets.some((pet) => pet.id === storedId);
+        const storedId = typeof window !== "undefined"
+          ? Number(window.localStorage.getItem("activePetId"))
+          : null;
+        const hasStored = storedId && ownedPets.some((pet) => pet.id === storedId);
         const initialId = hasStored ? storedId : (ownedPets[0]?.id ?? null);
 
         setSelectedPetId(initialId);
+
         if (typeof window !== "undefined") {
-          if (initialId) {
-            window.localStorage.setItem("activePetId", String(initialId));
-          } else {
-            window.localStorage.removeItem("activePetId");
-          }
+          if (initialId) window.localStorage.setItem("activePetId", String(initialId));
+          else window.localStorage.removeItem("activePetId");
         }
-      } catch (err) {
+      } catch {
         if (!mounted) return;
         setMe(null);
         setPets([]);
@@ -77,67 +269,175 @@ export default function PerfilTutor({
     };
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showMenu && tutorMenuRef.current && !tutorMenuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+
+      if (petMenuOpen !== null) {
+        const buttonElement = petMenuRefs.current[petMenuOpen];
+        const clickedButton = buttonElement?.contains(event.target);
+        const clickedMenu = petMenuLayerRef.current?.contains(event.target);
+        if (!clickedButton && !clickedMenu) {
+          setPetMenuOpen(null);
+        }
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMenu, petMenuOpen]);
+
+  const mappedPets = useMemo(() => {
+    if (!Array.isArray(pets)) return [];
+
+    return pets.map((pet) => {
+      const parsed = parseDescription(pet.description || "");
+      const images = [pet.mainPhoto, ...(Array.isArray(pet.additionalPhotos) ? pet.additionalPhotos : [])].filter(Boolean);
+
+      return {
+        id: pet.id,
+        name: pet.name || "-",
+        species: pet.species || "-",
+        breed: pet.breed || "-",
+        sex: pet.sex || pet.gender || "-",
+        birthDate: parsed.dataNascimento || pet.birthDate || formatBirthDate(pet.ageMonths),
+        images,
+        about: parsed.about,
+        weight: parsed.peso || pet.peso || pet.weight || "",
+        color: parsed.cor || pet.color || "",
+        size: parsed.tamanho || parsed.porte || pet.size || "",
+        temperament: parsed.temperamento,
+        objective: parsed.objetivo,
+        healthHistory: {
+          vaccinations: parsed.vacinacao,
+          genetics: parsed.genetica,
+          allergies: parsed.alergias,
+          medications: parsed.medicamentos,
+        },
+        pedigree: {
+          hasDocument: Boolean(parsed.pedigreePai || parsed.pedigreeMae || parsed.pedigreeVerificado),
+          verified: parsed.pedigreeVerificado,
+          father: parsed.pedigreePai,
+          mother: parsed.pedigreeMae,
+        },
+        breedingHistory: {
+          litters: parsed.ninhadas,
+          lastBreeding: parsed.ultimaReproducao,
+          notes: parsed.observacoesReproducao,
+        },
+      };
+    });
+  }, [pets]);
+
+  const selectedPet = mappedPets.find((pet) => pet.id === selectedPetId) || mappedPets[0] || null;
+
   const tutorSource = tutorData || me || {};
   const tutor = {
-    nome: tutorSource.nome ?? tutorSource.name ?? "",
-    email: tutorSource.email ?? "",
-    telefone: tutorSource.telefone ?? "",
-    cidade: tutorSource.cidade ?? "",
-    estado: tutorSource.estado ?? "",
-    avatar: tutorSource.avatar ?? tutorSource.foto ?? "",
+    name: tutorSource.name || tutorSource.nome || "",
+    email: tutorSource.email || "",
+    phone: tutorSource.telefone || "",
+    location: tutorSource.cidade
+      ? `${tutorSource.cidade}${tutorSource.estado ? `, ${tutorSource.estado}` : ""}`
+      : "",
+    avatar: tutorSource.avatar || tutorSource.foto || "",
+    bio: "Perfil de tutor PetFind",
+    memberSince: tutorSource.createdAt
+      ? new Date(tutorSource.createdAt).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+      : "",
   };
 
-  const formatarIdade = (idade) => {
-    const idadeNum = parseInt(idade, 10);
-    if (isNaN(idadeNum)) return "-";
-    if (idadeNum === 0 || idadeNum === 1) return "Filhote (0-1 ano)";
-    if (idadeNum <= 7) return "Adulto (2-7 anos)";
-    return "Idoso (8+ anos)";
-  };
-
-  const handleSelectPet = (petId) => {
+  const handlePetSelect = (petId) => {
     setSelectedPetId(petId);
+    setCurrentImageIndex(0);
     if (typeof window !== "undefined") {
       window.localStorage.setItem("activePetId", String(petId));
     }
   };
 
   const handleVerMatches = (petId) => {
-    handleSelectPet(petId);
+    handlePetSelect(petId);
+    if (onNavigateToMatches) {
+      onNavigateToMatches();
+      return;
+    }
     router.push("/match-display");
   };
 
-  const mappedPets = Array.isArray(pets)
-    ? pets.map((pet) => ({
-        id: pet.id,
-        nome: pet.nome ?? pet.name ?? "-",
-        raca: pet.raca ?? pet.breed ?? "-",
-        tipo: pet.especie ?? pet.species ?? "-",
-        idade: formatarIdade(pet.idade ?? pet.age ?? pet.ageMonths),
-        sexo: pet.sexo ?? pet.sex ?? "-",
-        foto: pet.mainPhoto || "",
-      }))
-    : [];
-
-  const handleSair = () => {
-    setConfirmAction({ type: "logout" });
+  const handleCadastrarPet = () => {
+    if (onNavigateToCadastrarPet) {
+      onNavigateToCadastrarPet();
+      return;
+    }
+    router.push("/pet-register");
   };
 
-  const handleEditarPerfil = () => {
-    if (onNavigateToEditarTutor) return onNavigateToEditarTutor();
+  const handleEditarTutor = () => {
+    if (onEditProfile) {
+      onEditProfile();
+      return;
+    }
+    if (onNavigateToEditarTutor) {
+      onNavigateToEditarTutor();
+      return;
+    }
     router.push("/tutor-edit");
   };
 
   const handleEditarPet = (petId) => {
-    if (onNavigateToEditarPet) return onNavigateToEditarPet(petId);
+    if (onNavigateToEditarPet) {
+      onNavigateToEditarPet(petId);
+      return;
+    }
     router.push(`/pet-edit?id=${petId}`);
   };
 
-  const handleExcluirPet = (petId) => {
+  const handleSharePet = async (pet) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/pet-details?id=${pet.id}`);
+      showToast("Link do pet copiado.", "success");
+    } catch {
+      showToast("Não foi possível copiar o link.", "error");
+    }
+  };
+
+  const handleOpenSetting = () => {
+    if (onSettings) {
+      onSettings();
+      return;
+    }
+    router.push("/settings/privacy");
+  };
+
+  const handleLogoutClick = () => {
+    setConfirmAction({ type: "logout" });
+  };
+
+  const handleDeletePetClick = (petId) => {
     setConfirmAction({ type: "delete-pet", petId });
   };
 
+  const handleTogglePetMenu = (event, petId) => {
+    const buttonRect = event.currentTarget.getBoundingClientRect();
+    setPetMenuPosition({
+      top: buttonRect.bottom + 8,
+      left: buttonRect.right,
+    });
+    setPetMenuOpen((prev) => (prev === petId ? null : petId));
+  };
+
   const closeConfirmModal = () => setConfirmAction(null);
+
+  const nextImage = () => {
+    if (!selectedPet || selectedPet.images.length === 0) return;
+    setCurrentImageIndex((prev) => (prev === selectedPet.images.length - 1 ? 0 : prev + 1));
+  };
+
+  const prevImage = () => {
+    if (!selectedPet || selectedPet.images.length === 0) return;
+    setCurrentImageIndex((prev) => (prev === 0 ? selectedPet.images.length - 1 : prev - 1));
+  };
 
   const confirmModal = confirmAction
     ? confirmAction.type === "logout"
@@ -149,11 +449,14 @@ export default function PerfilTutor({
           onConfirm: async () => {
             closeConfirmModal();
             try {
+              if (onLogout) {
+                onLogout();
+                return;
+              }
               await logoutUser();
-            } catch (error) {
-              showToast("Não foi possível encerrar a sessão agora.", "error");
-            } finally {
               router.push("/login");
+            } catch {
+              showToast("Não foi possível encerrar a sessão agora.", "error");
             }
           },
         }
@@ -168,26 +471,18 @@ export default function PerfilTutor({
 
             try {
               await deletePet(petId);
-
-              setPets((previousPets) => {
-                const nextPets = previousPets.filter((pet) => pet.id !== petId);
-
+              setPets((prevPets) => {
+                const next = prevPets.filter((pet) => pet.id !== petId);
                 if (selectedPetId === petId) {
-                  const nextSelected = nextPets[0]?.id ?? null;
+                  const nextSelected = next[0]?.id ?? null;
                   setSelectedPetId(nextSelected);
-
                   if (typeof window !== "undefined") {
-                    if (nextSelected) {
-                      window.localStorage.setItem("activePetId", String(nextSelected));
-                    } else {
-                      window.localStorage.removeItem("activePetId");
-                    }
+                    if (nextSelected) window.localStorage.setItem("activePetId", String(nextSelected));
+                    else window.localStorage.removeItem("activePetId");
                   }
                 }
-
-                return nextPets;
+                return next;
               });
-
               showToast("Pet excluído com sucesso.", "success");
             } catch (error) {
               const message = error?.response?.data?.error || "Não foi possível excluir o pet.";
@@ -197,320 +492,510 @@ export default function PerfilTutor({
         }
     : null;
 
-  const handleCadastrarPet = () => {
-    router.push("/pet-register");
-  };
-
-  const handleOpenSetting = (settingKey) => {
-    if (settingKey === "match") {
-      router.push("/settings/match");
-      return;
-    }
-
-    if (settingKey === "notifications") {
-      router.push("/settings/notifications");
-      return;
-    }
-
-    if (settingKey === "privacy") {
-      router.push("/settings/privacy");
-      return;
-    }
-
-    if (settingKey === "support") {
-      router.push("/settings/support");
-    }
-  };
-
-  const settingsItems = [
-    {
-      key: "match",
-      label: "Preferências de Match",
-      description: "Ajuste tipo de pet e critérios de conexão.",
-    },
-    {
-      key: "notifications",
-      label: "Notificações",
-      description: "Controle alertas de mensagens, likes e matches.",
-    },
-    {
-      key: "privacy",
-      label: "Privacidade",
-      description: "Gerencie visibilidade de informações do perfil.",
-    },
-    {
-      key: "support",
-      label: "Ajuda e Suporte",
-      description: "Fale com o suporte do PetFind quando precisar.",
-    },
-  ];
-
   return (
-    <Layout>
-      <div className="min-h-screen page-bg">
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="rounded-3xl bg-white shadow-[0_16px_45px_rgba(15,23,42,0.08)] p-6 sm:p-8 mb-6 border border-[#F4E4DA]">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-[#0a0a0a]">
-                  Meu Perfil
-                </h1>
-                <p className="mt-2 text-[#4a5565] text-sm sm:text-base">
-                  Gerencie suas informações e os dados dos seus pets.
-                </p>
-              </div>
+    <div className="min-h-screen bg-[#FFF7F1] flex flex-col">
+      <Header />
 
-              <button
-                onClick={handleSair}
-                className="btn-secondary self-start border-[#F2D4C8] bg-[#FFF7F1] text-[#ff8566] hover:bg-[#FFEFE6]"
-              >
-                <LogOut className="size-4" />
-                Sair
-              </button>
-            </div>
-          </div>
-
-          <section className="bg-white rounded-3xl shadow-[0_12px_35px_rgba(15,23,42,0.08)] border border-[#F4E4DA] p-6 sm:p-8 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl sm:text-2xl font-bold text-[#0a0a0a]">
-                Informações do Tutor
-              </h3>
-              <button
-                onClick={handleEditarPerfil}
-                className="btn-text"
-                aria-label="Editar perfil do tutor"
-              >
-                <Edit className="size-4" />
-                Editar
-              </button>
+      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-10 max-w-6xl mx-auto w-full">
+        {!selectedPet ? (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-2 px-1">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0a0a0a]">
+                Olá, {tutor.name || "Tutor"}!
+              </h2>
+              <p className="text-sm sm:text-base text-[#4a5565]">
+                Adicione seu primeiro pet para começar a buscar matches.
+              </p>
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-center gap-6">
-              <div className="size-24 rounded-2xl overflow-hidden bg-[#FFF2EA] border border-[#F2D4C8] shrink-0 relative">
-                {tutor.avatar ? (
-                  <Image
-                    src={tutor.avatar}
-                    alt="Avatar"
-                    fill
-                    sizes="96px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[#b4897a] text-sm">
-                    Sem foto
-                  </div>
-                )}
-              </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 sm:p-12 border border-[#F4E4DA]">
+              <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8 max-w-lg mx-auto">
+                <div className="bg-[rgba(255,169,143,0.2)] rounded-full size-16 sm:size-20 flex items-center justify-center">
+                  <Heart className="size-8 sm:size-10 text-[#FFAD93]" />
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 w-full text-sm sm:text-base">
-                <p className="text-[#364153]">
-                  <span className="font-semibold text-[#0a0a0a]">Nome:</span>{" "}
-                  {tutor.nome || "-"}
-                </p>
-                <p className="text-[#364153]">
-                  <span className="font-semibold text-[#0a0a0a]">Email:</span>{" "}
-                  {tutor.email || "-"}
-                </p>
-                <p className="text-[#364153]">
-                  <span className="font-semibold text-[#0a0a0a]">
-                    Telefone:
-                  </span>{" "}
-                  {tutor.telefone || "-"}
-                </p>
-                <p className="text-[#364153]">
-                  <span className="font-semibold text-[#0a0a0a]">Local:</span>{" "}
-                  {tutor.cidade
-                    ? `${tutor.cidade}${tutor.estado ? ` - ${tutor.estado}` : ""}`
-                    : "-"}
-                </p>
-              </div>
-            </div>
-          </section>
+                <h3 className="text-2xl sm:text-3xl font-bold text-[#0a0a0a]">
+                  Nenhum pet cadastrado
+                </h3>
 
-          <section className="bg-white rounded-3xl shadow-[0_12px_35px_rgba(15,23,42,0.08)] border border-[#F4E4DA] p-6 sm:p-8">
-            <div className="flex items-center justify-between mb-6 gap-3">
-              <h3 className="text-xl sm:text-2xl font-bold text-[#0a0a0a]">
-                Meus Pets
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-[#FFF1E8] px-3 py-1 text-sm font-semibold text-[#ff8566]">
-                  {mappedPets.length}
-                </span>
+                <p className="text-[#4a5565] leading-relaxed max-w-md text-sm sm:text-base">
+                  Cadastre o perfil do seu pet para começar a encontrar companhia ou parceiros para reprodução responsável.
+                </p>
+
                 <button
                   type="button"
                   onClick={handleCadastrarPet}
-                  className="btn-icon hidden sm:inline-flex border-[#F2D4C8] text-[#ff8566] hover:bg-[#ff8566] hover:text-[#FFF9F5]"
-                  aria-label="Cadastrar pet"
+                  className="bg-[#FFAD93] text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-shadow flex items-center gap-2"
                 >
-                  <Plus className="size-4" />
+                  <Plus className="size-5" />
+                  Cadastrar Primeiro Pet
                 </button>
               </div>
             </div>
+          </div>
+        ) : (
+          <>
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden mb-3 sm:mb-4">
+              <div className="relative aspect-4/3 sm:aspect-video lg:aspect-16/6 bg-gray-100">
+                {selectedPet.images[currentImageIndex] ? (
+                  <Image
+                    src={selectedPet.images[currentImageIndex]}
+                    alt={selectedPet.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1200px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm text-[#6a7282]">
+                    Sem foto
+                  </div>
+                )}
 
-            {mappedPets.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#F2D4C8] bg-[#FFF9F5] p-8 text-center">
-                <p className="text-[#4a5565]">Você ainda não cadastrou pets.</p>
-                <button onClick={handleCadastrarPet} className="btn mt-4">
-                  <Plus className="size-4" />
-                  Cadastrar pet
-                </button>
+                {selectedPet.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevImage}
+                      className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 size-8 sm:size-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center transition-all shadow-lg active:scale-95"
+                    >
+                      <ChevronLeft className="size-5 sm:size-6 text-[#0a0a0a]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextImage}
+                      className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 size-8 sm:size-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center transition-all shadow-lg active:scale-95"
+                    >
+                      <ChevronRight className="size-5 sm:size-6 text-[#0a0a0a]" />
+                    </button>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="space-y-4">
-                {mappedPets.map((pet) => (
-                  <article
-                    key={pet.id}
-                    className={`rounded-2xl border p-4 sm:p-5 transition-all ${
-                      pet.id === selectedPetId
-                        ? "border-[#FFB39B] bg-[#FFF7F1] shadow-[0_8px_24px_rgba(255,133,102,0.14)]"
-                        : "border-[#ECEEF2] bg-white hover:border-[#F2D4C8]"
-                    }`}
+            </div>
+
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg mb-3 sm:mb-4">
+              <div className="px-4 sm:px-5 py-4 sm:py-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowImageModal(true)}
+                    className="size-16 sm:size-20 rounded-full overflow-hidden bg-gray-200 shrink-0 shadow-md hover:shadow-lg transition-shadow"
                   >
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="size-16 rounded-xl overflow-hidden bg-[#FFF2EA] border border-[#F2D4C8] shrink-0 relative">
-                          {pet.foto ? (
-                            <Image
-                              src={pet.foto}
-                              alt={pet.nome}
-                              fill
-                              sizes="64px"
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl">
-                              🐾
-                            </div>
-                          )}
-                        </div>
+                    {tutor.avatar ? (
+                      <Image
+                        src={tutor.avatar}
+                        alt={tutor.name}
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-cover object-center"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-[#6a7282]">Sem foto</div>
+                    )}
+                  </button>
 
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-[#0a0a0a] text-lg truncate">
-                            {pet.nome}
-                          </h4>
-                          <p className="text-sm text-[#4a5565] truncate">
-                            {pet.raca} • {pet.tipo}
-                          </p>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="rounded-full bg-[#F8FAFC] text-[#475467] px-2.5 py-1">
-                              {pet.idade}
-                            </span>
-                            <span className="rounded-full bg-[#F8FAFC] text-[#475467] px-2.5 py-1">
-                              Sexo: {pet.sexo}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectPet(pet.id)}
-                          className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                            pet.id === selectedPetId
-                              ? "bg-[#FFDCCF] text-[#ff8566]"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                          }`}
-                          aria-pressed={pet.id === selectedPetId}
-                        >
-                          {pet.id === selectedPetId
-                            ? "Selecionado"
-                            : "Selecionar"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleVerMatches(pet.id)}
-                          className="btn"
-                          aria-label={`Ver matches para ${pet.nome}`}
-                        >
-                          Ver Matches
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEditarPet(pet.id)}
-                          aria-label={`Editar pet ${pet.nome}`}
-                          className="btn-icon border-[#F2D4C8] text-[#ff8566] hover:bg-[#FFF7F1]"
-                        >
-                          <Edit className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleExcluirPet(pet.id)}
-                          aria-label={`Excluir pet ${pet.nome}`}
-                          className="btn-danger-icon border-[#F2D4C8] text-[#ff8566] hover:bg-[#FFF7F1]"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="bg-white rounded-3xl shadow-[0_12px_35px_rgba(15,23,42,0.08)] border border-[#F4E4DA] p-6 sm:p-8 mt-6">
-            <h3 className="text-xl sm:text-2xl font-bold text-[#0a0a0a] mb-5">
-              Configurações
-            </h3>
-
-            <div className="space-y-2">
-              {settingsItems.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => handleOpenSetting(item.key)}
-                  className="w-full flex items-center justify-between gap-3 rounded-2xl border border-transparent bg-white p-4 hover:bg-[#FFF9F5] hover:border-[#F2D4C8]"
-                >
-                  <div className="flex items-start gap-3 text-left">
-                    <div className="mt-0.5 inline-flex items-center justify-center size-9 rounded-xl bg-[#FFF1E8] text-[#ff8566]">
-                      <Settings className="size-5" />
-                    </div>
-                    <div>
-                      <p className="text-base sm:text-lg font-semibold text-[#0a0a0a]">
-                        {item.label}
-                      </p>
-                      <p className="text-xs sm:text-sm text-[#4a5565] mt-0.5">
-                        {item.description}
-                      </p>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg sm:text-xl font-bold text-[#0a0a0a] mb-1 truncate">{tutor.name || "Tutor"}</h2>
+                    <p className="text-xs text-[#4a5565] mb-1 truncate">{tutor.location || "-"}</p>
+                    <p className="text-sm text-[#364153] mb-2 line-clamp-2 sm:line-clamp-none">{tutor.bio}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs text-[#6a7282]">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Mail className="size-3.5 text-[#FFAD93] shrink-0" />
+                        <span className="truncate">{tutor.email || "-"}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Phone className="size-3.5 text-[#FFAD93] shrink-0" />
+                        {tutor.phone || "-"}
+                      </span>
+                      {tutor.memberSince && (
+                        <span className="flex items-center gap-1.5 whitespace-nowrap">
+                          <Calendar className="size-3.5 text-[#FFAD93] shrink-0" />
+                          Membro desde {tutor.memberSince}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <ChevronRight className="size-5 text-[#4a5565] shrink-0" />
-                </button>
-              ))}
-            </div>
-          </section>
+                  <div className="relative" ref={tutorMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowMenu(!showMenu)}
+                      className="size-9 sm:size-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+                    >
+                      <MoreVertical className="size-5 text-[#4A5565]" />
+                    </button>
 
+                    {showMenu && (
+                      <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 z-20">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMenu(false);
+                            handleEditarTutor();
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-[#0a0a0a] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        >
+                          <Edit2 className="size-3.5 text-[#FFAD93]" />
+                          Editar Perfil
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMenu(false);
+                            handleOpenSetting();
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-[#0a0a0a] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        >
+                          <Settings className="size-3.5 text-[#FFAD93]" />
+                          Configurações
+                        </button>
+                        <div className="h-px bg-gray-100 my-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMenu(false);
+                            handleLogoutClick();
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2"
+                        >
+                          <LogOut className="size-3.5" />
+                          Sair
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                  <h3 className="text-base font-bold text-[#0a0a0a] mb-3">Sobre {selectedPet.name}</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-[#6a7282]">Raça:</span>
+                      <span className="text-[#0a0a0a] font-medium">{selectedPet.breed}</span>
+                    </div>
+                    {selectedPet.birthDate && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[#6a7282]">Data de Nascimento:</span>
+                        <span className="text-[#0a0a0a] font-medium">{formatDateForDisplay(selectedPet.birthDate)}</span>
+                      </div>
+                    )}
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-xs text-[#364153] leading-relaxed">{selectedPet.about || "Sem descrição."}</p>
+                    </div>
+                    {selectedPet.temperament.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs text-[#6a7282] mb-2">Temperamento:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedPet.temperament.map((trait, index) => (
+                            <span key={`${trait}-${index}`} className="px-2.5 py-0.5 rounded-full border border-[#FFAD93] bg-[rgba(255,173,147,0.05)] text-[#FFAD93] text-xs">
+                              {trait}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold text-[#0a0a0a]">Meus Pets</h3>
+                    <button type="button" onClick={handleCadastrarPet} className="size-8 rounded-full bg-[#FFAD93] hover:bg-[#FF9D8B] flex items-center justify-center transition-colors shadow-md">
+                      <Plus className="size-4 text-white" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-70 pr-2 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {mappedPets.map((pet) => (
+                      <div key={pet.id} className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all relative ${pet.id === selectedPet.id ? "bg-[rgba(255,173,147,0.08)] border-2 border-[#FFAD93]" : "bg-gray-50 border-2 border-transparent hover:bg-gray-100"}`}>
+                        <button type="button" onClick={() => handlePetSelect(pet.id)} className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="size-10 sm:size-12 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                            {pet.images[0] ? (
+                              <Image
+                                src={pet.images[0]}
+                                alt={pet.name}
+                                width={48}
+                                height={48}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs text-[#6a7282]">🐾</div>
+                            )}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className={`font-bold text-xs truncate ${pet.id === selectedPet.id ? "text-[#FFAD93]" : "text-[#0a0a0a]"}`}>{pet.name}</p>
+                            <p className="text-xs text-[#6a7282] truncate">{pet.breed}</p>
+                          </div>
+                        </button>
+
+                        <div className="relative" ref={(element) => { petMenuRefs.current[pet.id] = element; }}>
+                          <button type="button" onClick={(event) => handleTogglePetMenu(event, pet.id)} className="size-8 rounded-full hover:bg-gray-200 flex items-center justify-center transition-colors">
+                            <MoreVertical className="size-3.5 text-[#4A5565]" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                  <h3 className="text-base font-bold text-[#0a0a0a] mb-3 flex items-center gap-2">
+                    <Award className="size-4 text-[#FFAD93]" />
+                    Linhagem
+                  </h3>
+                  {selectedPet.pedigree.hasDocument ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-[#6a7282] mb-0.5">Pai</p>
+                        <p className="text-xs font-medium text-[#0a0a0a]">{selectedPet.pedigree.father || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#6a7282] mb-0.5">Mãe</p>
+                        <p className="text-xs font-medium text-[#0a0a0a]">{selectedPet.pedigree.mother || "-"}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Award className="size-8 text-gray-300 mx-auto mb-2" />
+                      <p className="text-xs text-[#6a7282]">Informações de linhagem não disponíveis</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                  <h3 className="text-base font-bold text-[#0a0a0a] mb-3 sm:mb-4">Histórico de Saúde</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="bg-white rounded-xl shadow-md p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                        <div className="size-7 sm:size-8 rounded-full bg-[rgba(255,173,147,0.12)] flex items-center justify-center shrink-0">
+                          <Syringe className="size-3.5 sm:size-4 text-[#FFAD93]" />
+                        </div>
+                        <h4 className="text-sm font-bold text-[#0a0a0a]">Vacinação</h4>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(selectedPet.healthHistory.vaccinations.length > 0 ? selectedPet.healthHistory.vaccinations : ["Sem registros"]).map((item, index) => (
+                          <div key={`vac-${index}`} className="text-xs text-[#364153] bg-gray-50 px-2.5 py-1.5 rounded-lg">{item}</div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-md p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                        <div className="size-7 sm:size-8 rounded-full bg-[rgba(255,173,147,0.12)] flex items-center justify-center shrink-0">
+                          <Dna className="size-3.5 sm:size-4 text-[#FFAD93]" />
+                        </div>
+                        <h4 className="text-sm font-bold text-[#0a0a0a]">Genética</h4>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(selectedPet.healthHistory.genetics.length > 0 ? selectedPet.healthHistory.genetics : ["Nenhum teste genético registrado"]).map((item, index) => (
+                          <div key={`gen-${index}`} className="text-xs text-[#364153] bg-gray-50 px-2.5 py-1.5 rounded-lg">{item}</div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-md p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                        <div className="size-7 sm:size-8 rounded-full bg-[rgba(255,173,147,0.12)] flex items-center justify-center shrink-0">
+                          <Activity className="size-3.5 sm:size-4 text-[#FFAD93]" />
+                        </div>
+                        <h4 className="text-sm font-bold text-[#0a0a0a]">Alergias</h4>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(selectedPet.healthHistory.allergies.length > 0 ? selectedPet.healthHistory.allergies : ["Nenhuma alergia conhecida"]).map((item, index) => (
+                          <div key={`ale-${index}`} className="text-xs text-[#364153] bg-gray-50 px-2.5 py-1.5 rounded-lg">{item}</div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-md p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                        <div className="size-7 sm:size-8 rounded-full bg-[rgba(255,173,147,0.12)] flex items-center justify-center shrink-0">
+                          <Shield className="size-3.5 sm:size-4 text-[#FFAD93]" />
+                        </div>
+                        <h4 className="text-sm font-bold text-[#0a0a0a]">Medicamentos</h4>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(selectedPet.healthHistory.medications.length > 0 ? selectedPet.healthHistory.medications : ["Sem uso contínuo registrado"]).map((item, index) => (
+                          <div key={`med-${index}`} className="text-xs text-[#364153] bg-gray-50 px-2.5 py-1.5 rounded-lg">{item}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3">
+                    <h3 className="text-base font-bold text-[#0a0a0a] flex items-center gap-2">
+                      <FileText className="size-4 text-[#FFAD93]" />
+                      Certificado de Pedigree
+                    </h3>
+                    {selectedPet.pedigree?.hasDocument && (
+                      <button type="button" className="flex items-center gap-2 px-3 py-1.5 bg-[rgba(255,173,147,0.12)] text-[#FFAD93] rounded-lg hover:bg-[rgba(255,173,147,0.2)] active:bg-[rgba(255,173,147,0.25)] transition-colors text-xs font-medium self-start sm:self-auto">
+                        <Upload className="size-3" />
+                        Visualizar
+                      </button>
+                    )}
+                  </div>
+                  {selectedPet.pedigree?.hasDocument ? (
+                    <div className="bg-[#FFFDFC] border-2 border-dashed border-[#FFE3D8] rounded-xl p-5 sm:p-6 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(255,173,147,0.14)] text-[#FFAD93] text-[11px] font-medium mb-3">
+                        <Award className="size-3.5" />
+                        Verificado
+                      </div>
+                      <p className="text-xs font-medium text-[#0a0a0a] mb-1">Documento Verificado</p>
+                      <p className="text-xs text-[#6a7282]">Pedigree registrado e autenticado</p>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-5 sm:p-6 text-center">
+                      <FileText className="size-8 sm:size-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-xs font-medium text-[#6a7282] mb-1">Certificado não disponível</p>
+                      <p className="text-xs text-[#9ca3af]">Nenhum documento de pedigree cadastrado</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                    <h3 className="text-base font-bold text-[#0a0a0a] mb-3">Informações Físicas</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                        <span className="text-xs text-[#6a7282]">Peso</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.weight || "-"}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                        <span className="text-xs text-[#6a7282]">Cor</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.color || "-"}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5">
+                        <span className="text-xs text-[#6a7282]">Porte</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.size || "-"}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5">
+                        <span className="text-xs text-[#6a7282]">Sexo</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.sex || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
+                    <h3 className="text-base font-bold text-[#0a0a0a] mb-3">Histórico de Reprodução</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                        <span className="text-xs text-[#6a7282]">Ninhadas</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.breedingHistory.litters || "-"}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
+                        <span className="text-xs text-[#6a7282]">Última Reprodução</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.breedingHistory.lastBreeding || "-"}</span>
+                      </div>
+                      <div className="pt-1.5">
+                        <p className="text-xs text-[#6a7282] mb-0.5">Observações:</p>
+                        <p className="text-xs text-[#364153]">{selectedPet.breedingHistory.notes || "Sem observações."}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {petMenuOpen !== null && (
+              <div
+                ref={petMenuLayerRef}
+                className="fixed w-40 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 z-60"
+                style={{
+                  top: `${petMenuPosition.top}px`,
+                  left: `${petMenuPosition.left}px`,
+                  transform: "translateX(-100%)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pet = mappedPets.find((item) => item.id === petMenuOpen);
+                    if (!pet) return;
+                    setPetMenuOpen(null);
+                    handleEditarPet(pet.id);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-[#0a0a0a] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <Edit2 className="size-3.5 text-[#FFAD93]" />
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pet = mappedPets.find((item) => item.id === petMenuOpen);
+                    if (!pet) return;
+                    setPetMenuOpen(null);
+                    handleSharePet(pet);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-[#0a0a0a] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <Share2 className="size-3.5 text-[#FFAD93]" />
+                  Compartilhar
+                </button>
+                <div className="h-px bg-gray-100 my-1" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pet = mappedPets.find((item) => item.id === petMenuOpen);
+                    if (!pet) return;
+                    setPetMenuOpen(null);
+                    handleDeletePetClick(pet.id);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="size-3.5" />
+                  Excluir
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {showImageModal && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-60 p-4"
+          onClick={() => setShowImageModal(false)}
+        >
           <button
             type="button"
-            onClick={handleCadastrarPet}
-            className="btn btn-pill sm:hidden fixed bottom-6 right-4 z-50 shadow-[0_10px_24px_rgba(255,133,102,0.35)] active:scale-[0.98]"
-            aria-label="Cadastrar novo pet"
+            onClick={() => setShowImageModal(false)}
+            className="absolute top-4 sm:top-6 right-4 sm:right-6 size-10 sm:size-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
           >
-            <Plus className="size-4" />
-            Cadastrar pet
+            <X className="size-5 sm:size-6 text-white" />
           </button>
-        </main>
-      </div>
+          {tutor.avatar ? (
+            <Image
+              src={tutor.avatar}
+              alt={tutor.name}
+              width={1200}
+              height={900}
+              className="max-w-full sm:max-w-3xl max-h-[70vh] sm:max-h-[80vh] rounded-xl sm:rounded-2xl shadow-2xl w-auto h-auto"
+              onClick={(event) => event.stopPropagation()}
+            />
+          ) : null}
+        </div>
+      )}
 
       {confirmModal && (
         <div className="fixed inset-0 z-130 bg-black/40 flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-3xl border border-[#F2D4C8] bg-white p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-[#0a0a0a] mb-2">{confirmModal.title}</h3>
             <p className="text-sm text-[#4a5565] mb-6">{confirmModal.description}</p>
-
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={closeConfirmModal} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="button" onClick={confirmModal.onConfirm} className={confirmModal.confirmStyle}>
-                {confirmModal.confirmText}
-              </button>
+              <button type="button" onClick={closeConfirmModal} className="btn-secondary">Cancelar</button>
+              <button type="button" onClick={confirmModal.onConfirm} className={confirmModal.confirmStyle}>{confirmModal.confirmText}</button>
             </div>
           </div>
         </div>
       )}
-    </Layout>
+    </div>
   );
 }
