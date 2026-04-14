@@ -1,10 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Heart, MapPin, X, Sparkles, Eye, MessageCircle, RotateCcw, User } from 'lucide-react';
 import { likePet, listMatches, listReceivedLikes, openDirectChat } from '../src/services/matches';
 import { listPets } from '../src/services/pets';
 import { getMe, getMyAccess } from '../src/services/auth';
 import { resolveMediaUrl } from '../src/services/media';
+import { getChatSocket } from '../src/services/socket';
 import { useRouter } from 'next/router';
 import Layout from '../src/components/Layout';
 import UpgradePlansModal from '../src/components/UpgradePlansModal';
@@ -16,7 +17,7 @@ const DAILY_LIKES_STORAGE_KEY = 'dailyLikesUsage';
 const LIKED_PETS_DISMISSED_KEY = 'dismissedLikedPetsByActivePet';
 const LIKED_PETS_SEEN_KEY = 'seenLikedPetsByActivePet';
 const TUTOR_PREVIEW_STORAGE_KEY = 'matchTutorProfilePreview';
-const FALLBACK_FREE_DAILY_LIKE_LIMIT = 2;
+const FALLBACK_FREE_DAILY_LIKE_LIMIT = 5;
 
 function getInitialDailyLikesState() {
   return {
@@ -235,6 +236,7 @@ export default function MatchDisplay({
   const [likedImageFailedMap, setLikedImageFailedMap] = useState({});
   const [swipeHistory, setSwipeHistory] = useState([]);
   const [lastNotifiedUnseenCount, setLastNotifiedUnseenCount] = useState(0);
+  const lastNotifiedUnseenCountRef = useRef(0);
 
   const currentProfile = pets[currentIndex];
   const currentProfileImages = currentProfile ? getProfileImageUrls(currentProfile) : [];
@@ -451,7 +453,7 @@ export default function MatchDisplay({
             dailyLikeLimit: FALLBACK_FREE_DAILY_LIKE_LIMIT,
             canSeeWhoLiked: false,
             canRelikeRejected: false,
-            canDirectChat: false,
+            canDirectChat: true,
             canAccessAdminPanel: false,
           },
         });
@@ -668,15 +670,16 @@ export default function MatchDisplay({
       const unseenCount = allLikedPetIds.filter((petId) => !seenLikedPetIds.has(petId)).length;
       setUnseenLikedCount(unseenCount);
 
-      if (unseenCount > lastNotifiedUnseenCount) {
-        const delta = unseenCount - lastNotifiedUnseenCount;
+      if (unseenCount > lastNotifiedUnseenCountRef.current) {
+        const delta = unseenCount - lastNotifiedUnseenCountRef.current;
         const message = delta === 1
           ? 'Você recebeu uma nova curtida!'
           : `Você recebeu ${delta} novas curtidas!`;
         showToast(message, 'success');
       }
 
-      if (unseenCount !== lastNotifiedUnseenCount) {
+      if (unseenCount !== lastNotifiedUnseenCountRef.current) {
+        lastNotifiedUnseenCountRef.current = unseenCount;
         setLastNotifiedUnseenCount(unseenCount);
       }
     }
@@ -685,6 +688,20 @@ export default function MatchDisplay({
 
     const intervalId = setInterval(refreshLikedPets, 15000);
     const handleFocus = () => refreshLikedPets();
+    const socket = getChatSocket();
+
+    const handleRealtimeLike = (payload) => {
+      const targetPetId = Number(payload?.toPetId);
+      if (Number.isFinite(targetPetId) && targetPetId !== Number(activePetId)) {
+        return;
+      }
+
+      refreshLikedPets();
+    };
+
+    if (socket) {
+      socket.on('likes:new-like', handleRealtimeLike);
+    }
 
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', handleFocus);
@@ -693,6 +710,9 @@ export default function MatchDisplay({
     return () => {
       mounted = false;
       clearInterval(intervalId);
+      if (socket) {
+        socket.off('likes:new-like', handleRealtimeLike);
+      }
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', handleFocus);
       }
@@ -700,11 +720,14 @@ export default function MatchDisplay({
   }, [
     activePetId,
     activeTab,
-    lastNotifiedUnseenCount,
     persistSeenLikedPetIds,
     readDismissedLikedPetIds,
     readSeenLikedPetIds,
   ]);
+
+  useEffect(() => {
+    lastNotifiedUnseenCountRef.current = Number(lastNotifiedUnseenCount) || 0;
+  }, [lastNotifiedUnseenCount]);
 
   function toAbsoluteUrl(url) {
     return resolveMediaUrl(url) || '';
@@ -912,12 +935,6 @@ export default function MatchDisplay({
   const handleDirectChat = async () => {
     if (!currentProfile) return;
 
-    if (!entitlements?.canDirectChat && currentTier !== 'admin') {
-      setUpgradeReason('chat-locked');
-      setShowUpgradeModal(true);
-      return;
-    }
-
     if (!activePetId) {
       showToast('Selecione um pet ativo para iniciar conversa.', 'error');
       setSelectionIssue('Selecione um pet no seu perfil para abrir o chat direto.');
@@ -960,12 +977,6 @@ export default function MatchDisplay({
   };
 
   const handleChatFromMatch = () => {
-    if (!entitlements?.canDirectChat && currentTier !== 'admin') {
-      setUpgradeReason('chat-locked');
-      setShowUpgradeModal(true);
-      return;
-    }
-
     closeMatchNotification();
     if (onNavigateToChat) return onNavigateToChat();
     router.push('/chat-on');
@@ -1444,28 +1455,6 @@ export default function MatchDisplay({
                     <div>
                       <p className="text-[#4a5565]">Selecione um pet no seu perfil para ver quem curtiu.</p>
                       <button onClick={handleGoPerfil} className="mt-4 btn btn-pill px-6 py-3">Ir para perfil</button>
-                    </div>
-                  </div>
-                ) : !isPremiumUser ? (
-                  <div className="h-full flex items-center justify-center text-center py-6">
-                    <div>
-                      <div className="size-24 mx-auto mb-4 rounded-full bg-[rgba(255,169,143,0.13)] flex items-center justify-center">
-                        <Eye className="size-12 text-[#ffa98f]" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-[#0a0a0a] mb-2">Ver quem curtiu é premium</h2>
-                      <p className="text-[#4a5565] mb-5">
-                        Faça upgrade para desbloquear a visualização de quem curtiu seu pet.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUpgradeReason('chat-locked');
-                          setShowUpgradeModal(true);
-                        }}
-                        className="btn btn-pill px-6 py-3"
-                      >
-                        Ver planos premium
-                      </button>
                     </div>
                   </div>
                 ) : likedPets.length === 0 ? (

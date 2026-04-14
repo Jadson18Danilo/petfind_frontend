@@ -184,6 +184,10 @@ export default function ChatOn() {
         };
 
         upsertMessage(mapped);
+
+        if (Number(payload?.senderId) !== Number(currentUserId)) {
+          markMessagesAsRead(activeConversation).catch(() => {});
+        }
       };
 
       socket.on('chat:new-message', onMessage);
