@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { showToast } from './toast';
 
-const primaryBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-const fallbackBaseURL = 'http://localhost:4001';
+const primaryBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
 
 const api = axios.create({
   baseURL: primaryBaseURL,
@@ -14,23 +13,6 @@ api.interceptors.response.use(
   async (error) => {
     const status = error?.response?.status;
     const skipAuthRedirect = Boolean(error?.config?.skipAuthRedirect);
-    const isNetworkError = !error?.response;
-    const currentBaseURL = error?.config?.baseURL || api.defaults.baseURL;
-    const canRetryWithFallback =
-      typeof window !== 'undefined' &&
-      isNetworkError &&
-      currentBaseURL === primaryBaseURL &&
-      primaryBaseURL.includes('localhost:4000') &&
-      !error?.config?._retryWithFallback;
-
-    if (canRetryWithFallback) {
-      api.defaults.baseURL = fallbackBaseURL;
-      return api.request({
-        ...error.config,
-        baseURL: fallbackBaseURL,
-        _retryWithFallback: true,
-      });
-    }
 
     if (typeof window !== 'undefined' && status === 401) {
       const currentPath = window.location.pathname || '';

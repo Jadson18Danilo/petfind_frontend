@@ -12,8 +12,13 @@ export async function loginUser(payload) {
 }
 
 export async function logoutUser() {
-  const response = await api.post('/api/auth/logout', {}, { withCredentials: true });
-  return response.data;
+  try {
+    const response = await api.post('/api/auth/logout-all-cookies', {}, { withCredentials: true });
+    return response.data;
+  } catch {
+    const response = await api.post('/api/auth/logout', {}, { withCredentials: true });
+    return response.data;
+  }
 }
 
 export async function getMe() {

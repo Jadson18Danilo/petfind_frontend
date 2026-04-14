@@ -43,6 +43,83 @@ function normalizeReadableValue(value) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+function resolveAvatarCandidate(value) {
+  if (typeof value === 'string' && value.trim()) {
+    const resolved = resolveMediaUrl(value);
+    return typeof resolved === 'string' ? resolved : '';
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.url === 'string' && value.url.trim()) {
+      const resolved = resolveMediaUrl(value.url);
+      return typeof resolved === 'string' ? resolved : '';
+    }
+
+    if (typeof value.avatar === 'string' && value.avatar.trim()) {
+      const resolved = resolveMediaUrl(value.avatar);
+      return typeof resolved === 'string' ? resolved : '';
+    }
+  }
+
+  return '';
+}
+
+function getBirthDateFromProfile(profile) {
+  const directBirthDate = String(profile?.birthDate || '').trim();
+  if (directBirthDate) return directBirthDate;
+
+  const description = String(profile?.description || '').replace(/\r/g, ' ').trim();
+  const match = description.match(/\bdata\s+de\s+nascimento\s*:\s*(\d{4}-\d{2}-\d{2})/i);
+  return match?.[1] ? match[1].trim() : '';
+}
+
+function getAgeInYearsFromDates(birthDateValue, referenceDateValue) {
+  if (!birthDateValue) return null;
+
+  const birthDate = new Date(birthDateValue);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const referenceDate = referenceDateValue ? new Date(referenceDateValue) : new Date();
+  if (Number.isNaN(referenceDate.getTime())) return null;
+
+  let ageYears = referenceDate.getFullYear() - birthDate.getFullYear();
+  const monthDelta = referenceDate.getMonth() - birthDate.getMonth();
+
+  if (monthDelta < 0 || (monthDelta === 0 && referenceDate.getDate() < birthDate.getDate())) {
+    ageYears -= 1;
+  }
+
+  if (ageYears < 0) return 0;
+  return ageYears;
+}
+
+function getProfileAgeYears(profile) {
+  const birthDate = getBirthDateFromProfile(profile);
+  const referenceDate = profile?.createdAt || null;
+  return getAgeInYearsFromDates(birthDate, referenceDate);
+}
+
+function extractAboutOnly(fullText) {
+  if (!fullText) return '';
+
+  const metadataRegex = /\b(data\s+de\s+nascimento|sexo|peso|cor|porte|tamanho|temperamento|vacina[cç][aã]o|gen[ée]tica|alergias|medicamentos|objetivo|pai|m[ãa]e|pedigree\s+verificado|ninhadas|[úu]ltima\s+reprodu[cç][ãa]o|obs)\b\s*:/i;
+  const metadataMatch = fullText.match(metadataRegex);
+
+  let aboutText = metadataMatch
+    ? fullText.slice(0, metadataMatch.index)
+    : fullText;
+
+  if (aboutText.includes('|')) {
+    aboutText = aboutText
+      .split('|')
+      .map((part) => part.trim())
+      .filter((part) => part && !metadataRegex.test(part))
+      .join(' ');
+  }
+
+  return aboutText.replace(/\s+/g, ' ').trim();
+}
+
 function parseProfilePresentation(profile) {
   const rawDescription = String(profile?.description || '').replace(/\r/g, ' ').trim();
   const fields = {
@@ -63,7 +140,25 @@ function parseProfilePresentation(profile) {
     temperamento: ['Temperamento'],
     pedigreeVerificado: ['Pedigree verificado'],
   };
-  const hiddenOnlyLabels = ['Cor', 'Objetivo'];
+  const hiddenOnlyLabels = [
+    'Cor',
+    'Objetivo',
+    'Data de nascimento',
+    'Vacinação',
+    'Vacinacao',
+    'Genética',
+    'Genetica',
+    'Alergias',
+    'Medicamentos',
+    'Pai',
+    'Mãe',
+    'Mae',
+    'Ninhadas',
+    'Última reprodução',
+    'Ultima reprodução',
+    'Ultima reproducao',
+    'Obs',
+  ];
 
   Object.entries(fieldLabels).forEach(([key, labels]) => {
     if (fields[key]) return;
@@ -83,7 +178,7 @@ function parseProfilePresentation(profile) {
     cleanBio = cleanBio.replace(cleanupPattern, ' ');
   });
 
-  cleanBio = cleanBio
+  cleanBio = extractAboutOnly(cleanBio)
     .replace(/\s*\|\s*/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -152,11 +247,12 @@ export default function MatchDisplay({
     currentProfile?.User?.name ||
     'Tutor';
   const displayTutorAvatar =
-    currentProfile?.tutorAvatar ||
-    currentProfile?.tutor?.avatar ||
-    currentProfile?.owner?.avatar ||
-    currentProfile?.User?.avatar ||
-    '';
+    resolveAvatarCandidate(currentProfile?.tutorAvatar)
+    || resolveAvatarCandidate(currentProfile?.tutor?.avatar)
+    || resolveAvatarCandidate(currentProfile?.owner?.avatar)
+    || resolveAvatarCandidate(currentProfile?.User?.avatar)
+    || resolveAvatarCandidate(currentProfile?.ownerAvatar)
+    || '';
   const currentImageUrl = currentProfileImages[currentImageIndex] || '';
   const selectedPetLat = Number(selectedPet?.latitude ?? selectedPet?.lat ?? selectedPet?.latitude);
   const selectedPetLng = Number(selectedPet?.longitude ?? selectedPet?.lng ?? selectedPet?.longitude);
@@ -174,6 +270,8 @@ export default function MatchDisplay({
     : computedDistanceKm;
   const currentMatchImageUrl = currentMatch ? getImageUrl(currentMatch) : '';
   const currentProfilePresentation = parseProfilePresentation(currentProfile);
+  const currentProfileAgeYears = getProfileAgeYears(currentProfile);
+  const displayAgeYears = Number.isFinite(currentProfileAgeYears) ? currentProfileAgeYears : null;
   const hasMoreProfiles = currentIndex < pets.length - 1;
   const noProfiles = !loading && !error && pets.length === 0;
   const activePetId = selectedPet?.id ?? currentPetId;
@@ -1066,7 +1164,7 @@ export default function MatchDisplay({
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h2 className="text-2xl font-bold text-[#0a0a0a]">
-                        {currentProfile.name || 'Pet'}, {currentProfile.age || '-'}
+                        {currentProfile.name || 'Pet'}, {displayAgeYears ?? '-'}
                       </h2>
                       <p className="text-[#4a5565]">{currentProfile.breed || '-'}</p>
                     </div>

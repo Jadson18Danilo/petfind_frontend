@@ -1,7 +1,7 @@
 import api from './api';
 
 function getApiBaseUrl() {
-  return (api?.defaults?.baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+  return (api?.defaults?.baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001').replace(/\/$/, '');
 }
 
 export function resolveMediaUrl(value) {

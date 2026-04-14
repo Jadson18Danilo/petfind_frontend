@@ -37,6 +37,31 @@ function parseListField(text) {
     .filter(Boolean);
 }
 
+function extractAboutOnly(fullText) {
+  if (!fullText) return "";
+
+  const metadataRegex = /\b(data\s+de\s+nascimento|peso|cor|tamanho|porte|temperamento|vacina[cç][aã]o|gen[ée]tica|alergias|medicamentos|objetivo|pai|m[ãa]e|pedigree\s+verificado|ninhadas|[úu]ltima\s+reprodu[cç][ãa]o|obs)\b\s*:/i;
+  const metadataMatch = fullText.match(metadataRegex);
+
+  let aboutText = metadataMatch
+    ? fullText.slice(0, metadataMatch.index)
+    : fullText;
+
+  if (aboutText.includes('|')) {
+    aboutText = aboutText
+      .split('|')
+      .map((part) => part.trim())
+      .filter((part) => part && !metadataRegex.test(part))
+      .join(' ');
+  }
+
+  aboutText = aboutText
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return aboutText;
+}
+
 function parseDescription(description) {
   const parsed = {
     about: "",
@@ -62,9 +87,12 @@ function parseDescription(description) {
   if (!description || typeof description !== "string") return parsed;
 
   const fullText = String(description).replace(/\r/g, "").trim();
+  parsed.about = extractAboutOnly(fullText);
 
   const blocks = fullText.split("\n\n").map((part) => part.trim()).filter(Boolean);
-  parsed.about = blocks[0] || "";
+  if (!parsed.about) {
+    parsed.about = extractAboutOnly(blocks[0] || "");
+  }
 
   const joined = blocks.join(" | ");
   const parts = joined.split("|").map((item) => item.trim()).filter(Boolean);
@@ -156,12 +184,7 @@ function parseDescription(description) {
     parsed.porte = extractAnywhere(/\bporte\b\s*[:=-]?\s*([^|\n]+)/i);
   }
 
-  if (parsed.about) {
-    const cleanedAbout = parsed.about
-      .replace(/\b(data\s+de\s+nascimento|peso|cor|tamanho|porte|temperamento|objetivo|pai|m[ãa]e|pedigree\s+verificado|ninhadas|[úu]ltima\s+reprodu[cç][ãa]o|obs)\b\s*[:=-].*$/i, "")
-      .trim();
-    parsed.about = cleanedAbout || parsed.about;
-  }
+  parsed.about = extractAboutOnly(parsed.about);
 
   return parsed;
 }
@@ -449,12 +472,16 @@ export default function PerfilTutor({
           onConfirm: async () => {
             closeConfirmModal();
             try {
-              if (onLogout) {
-                onLogout();
+              await logoutUser();
+
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem("activePetId");
+                window.sessionStorage.removeItem("activePetId");
+                window.location.href = "/";
                 return;
               }
-              await logoutUser();
-              router.push("/login");
+
+              router.replace("/");
             } catch {
               showToast("Não foi possível encerrar a sessão agora.", "error");
             }
@@ -739,31 +766,7 @@ export default function PerfilTutor({
                       </div>
                     ))}
                   </div>
-                </div>
-
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
-                  <h3 className="text-base font-bold text-[#0a0a0a] mb-3 flex items-center gap-2">
-                    <Award className="size-4 text-[#FFAD93]" />
-                    Linhagem
-                  </h3>
-                  {selectedPet.pedigree.hasDocument ? (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs text-[#6a7282] mb-0.5">Pai</p>
-                        <p className="text-xs font-medium text-[#0a0a0a]">{selectedPet.pedigree.father || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#6a7282] mb-0.5">Mãe</p>
-                        <p className="text-xs font-medium text-[#0a0a0a]">{selectedPet.pedigree.mother || "-"}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <Award className="size-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-xs text-[#6a7282]">Informações de linhagem não disponíveis</p>
-                    </div>
-                  )}
-                </div>
+                </div>              
               </div>
 
               <div className="lg:col-span-2 space-y-3 sm:space-y-4">
@@ -883,19 +886,19 @@ export default function PerfilTutor({
                   </div>
 
                   <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-5">
-                    <h3 className="text-base font-bold text-[#0a0a0a] mb-3">Histórico de Reprodução</h3>
+                    <h3 className="text-base font-bold text-[#0a0a0a] mb-3">Linhagem</h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
-                        <span className="text-xs text-[#6a7282]">Ninhadas</span>
-                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.breedingHistory.litters || "-"}</span>
+                        <span className="text-xs text-[#6a7282]">Pai</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.pedigree.father || "-"}</span>
                       </div>
                       <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
-                        <span className="text-xs text-[#6a7282]">Última Reprodução</span>
-                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.breedingHistory.lastBreeding || "-"}</span>
+                        <span className="text-xs text-[#6a7282]">Mãe</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.pedigree.mother || "-"}</span>
                       </div>
-                      <div className="pt-1.5">
-                        <p className="text-xs text-[#6a7282] mb-0.5">Observações:</p>
-                        <p className="text-xs text-[#364153]">{selectedPet.breedingHistory.notes || "Sem observações."}</p>
+                      <div className="flex justify-between items-center py-1.5">
+                        <span className="text-xs text-[#6a7282]">Verificado</span>
+                        <span className="text-xs font-bold text-[#0a0a0a]">{selectedPet.pedigree.verified ? "Sim" : "Não"}</span>
                       </div>
                     </div>
                   </div>

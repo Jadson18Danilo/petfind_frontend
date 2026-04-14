@@ -6,6 +6,28 @@ import Layout from '../src/components/Layout';
 
 const TUTOR_PREVIEW_STORAGE_KEY = 'matchTutorProfilePreview';
 
+function extractAboutOnly(fullText) {
+  if (!fullText || typeof fullText !== 'string') return '';
+
+  const metadataRegex = /\b(data\s+de\s+nascimento|peso|cor|tamanho|porte|temperamento|vacina[cç][aã]o|gen[ée]tica|alergias|medicamentos|objetivo|pai|m[ãa]e|pedigree\s+verificado|ninhadas|[úu]ltima\s+reprodu[cç][ãa]o|obs)\b\s*:/i;
+  const normalized = fullText.replace(/\r/g, '').trim();
+  const metadataMatch = normalized.match(metadataRegex);
+
+  let aboutText = metadataMatch
+    ? normalized.slice(0, metadataMatch.index)
+    : normalized;
+
+  if (aboutText.includes('|')) {
+    aboutText = aboutText
+      .split('|')
+      .map((part) => part.trim())
+      .filter((part) => part && !metadataRegex.test(part))
+      .join(' ');
+  }
+
+  return aboutText.replace(/\s+/g, ' ').trim();
+}
+
 export default function TutorPublicProfile() {
   const router = useRouter();
   const [data, setData] = useState(null);
@@ -33,6 +55,7 @@ export default function TutorPublicProfile() {
 
   const pet = data?.pet || {};
   const petImage = pet?.image || '';
+  const petDescription = extractAboutOnly(pet?.description) || 'Sem descrição.';
 
   return (
     <Layout>
@@ -93,7 +116,7 @@ export default function TutorPublicProfile() {
                   <h3 className="text-lg font-semibold text-[#0a0a0a] truncate">{pet?.name || 'Pet'}</h3>
                   <p className="text-sm text-[#6a7282] mt-0.5">{pet?.breed || 'Raça não informada'}</p>
                   <p className="text-sm text-[#6a7282] mt-0.5">{pet?.species || 'Espécie não informada'}</p>
-                  <p className="text-sm text-[#364153] mt-3 leading-relaxed">{pet?.description || 'Sem descrição.'}</p>
+                  <p className="text-sm text-[#364153] mt-3 leading-relaxed">{petDescription}</p>
                 </div>
               </div>
             </div>

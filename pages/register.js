@@ -159,7 +159,13 @@ export default function Register() {
       resetForm();
       setTimeout(() => router.push('/login'), 1200);
     } catch (err) {
-      setError(err?.response?.data?.error || 'Falha no cadastro');
+      const status = err?.response?.status;
+      const backendError = err?.response?.data?.error;
+      if (status === 409) {
+        setError('Este email já está cadastrado. Use a tela Entrar.');
+      } else {
+        setError(backendError || 'Falha no cadastro');
+      }
     } finally {
       setLoading(false);
     }

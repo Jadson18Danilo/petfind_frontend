@@ -81,10 +81,9 @@ export default function PetRegister({
   const steps = [
     { number: 1, title: 'Fotos do Pet', icon: Upload },
     { number: 2, title: 'Informações Básicas', icon: Dog },
-    { number: 3, title: 'Histórico de Saúde', icon: Shield },
-    { number: 4, title: 'Objetivo', icon: Heart },
+    { number: 3, title: 'Objetivo', icon: Heart },
+    { number: 4, title: 'Histórico de Saúde', icon: Shield },
     { number: 5, title: 'Pedigree', icon: Award },
-    { number: 6, title: 'Reprodução', icon: Calendar },
   ];
 
   const handleMainPhotoChange = (event) => {
@@ -269,7 +268,7 @@ export default function PetRegister({
   };
 
   const nextStep = () => {
-    if (currentStep >= 6) return;
+    if (currentStep >= 5) return;
 
     if (!canProceedToNextStep()) {
       setError('Preencha os campos obrigatórios da etapa para continuar.');
@@ -289,8 +288,7 @@ export default function PetRegister({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async () => {
     if (isSubmitting) return;
 
     setError('');
@@ -339,7 +337,7 @@ export default function PetRegister({
           </div>
 
           <div className="mb-6 sm:mb-8">
-            <div className="hidden sm:flex items-center justify-between mb-4">
+            <div className="hidden sm:flex items-start justify-between mb-4">
               {steps.map((step, index) => {
                 const StepIcon = step.icon;
                 const isCompleted = currentStep > step.number;
@@ -347,7 +345,7 @@ export default function PetRegister({
 
                 return (
                   <div key={step.number} className="flex items-center flex-1">
-                    <div className="flex flex-col items-center flex-1">
+                    <div className="flex flex-col items-center flex-1 self-start min-h-21">
                       <div className={`size-10 sm:size-12 rounded-full flex items-center justify-center transition-all mb-2 ${
                         isCompleted
                           ? 'bg-gradient-to-r from-[#ffa98f] to-[#ff8566] text-white'
@@ -357,7 +355,7 @@ export default function PetRegister({
                       }`}>
                         {isCompleted ? <Check className="size-5 sm:size-6" /> : <StepIcon className="size-5 sm:size-6" />}
                       </div>
-                      <span className={`text-xs font-medium text-center transition-colors ${
+                      <span className={`text-xs font-medium text-center transition-colors leading-tight min-h-8 flex items-start justify-center ${
                         isCurrent ? 'text-[#FFAD93]' : isCompleted ? 'text-[#0a0a0a]' : 'text-gray-400'
                       }`}>
                         {step.title}
@@ -377,7 +375,7 @@ export default function PetRegister({
               <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#ffa98f] to-[#ff8566] transition-all duration-300"
-                  style={{ width: `${(currentStep / 6) * 100}%` }}
+                  style={{ width: `${(currentStep / 5) * 100}%` }}
                 />
               </div>
 
@@ -392,7 +390,7 @@ export default function PetRegister({
                     );
                   })()}
                   <div>
-                    <p className="text-xs text-[#6a7282]">Etapa {currentStep} de 6</p>
+                    <p className="text-xs text-[#6a7282]">Etapa {currentStep} de 5</p>
                     <p className="text-sm font-bold text-[#FFAD93]">{steps[currentStep - 1].title}</p>
                   </div>
                 </div>
@@ -400,7 +398,7 @@ export default function PetRegister({
             </div>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={(event) => event.preventDefault()}>
             {currentStep === 1 && (
               <div className="space-y-6">
                 <div className="space-y-3">
@@ -620,7 +618,7 @@ export default function PetRegister({
               </div>
             )}
 
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <div className="space-y-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-[#0a0a0a] pb-2 border-b-2 border-[#FFAD93]">Histórico de Saúde</h3>
@@ -754,7 +752,7 @@ export default function PetRegister({
               </div>
             )}
 
-            {currentStep === 4 && (
+            {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-[#0a0a0a] pb-2 border-b-2 border-[#FFAD93]">O que você busca?</h3>
@@ -876,51 +874,6 @@ export default function PetRegister({
               </div>
             )}
 
-            {currentStep === 6 && (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-[#0a0a0a] pb-2 border-b-2 border-[#FFAD93]">Histórico de Reprodução</h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="ninhadas" className="block text-sm font-medium text-[#0a0a0a]">
-                        <Heart className="inline size-4 mr-1.5 text-[#FFAD93]" />
-                        Número de Ninhadas
-                      </label>
-                      <input id="ninhadas" type="number" value={formData.ninhadas} onChange={(event) => handleChange('ninhadas', event.target.value)} placeholder="Ex: 2" min="0" className={getInputClassName('ninhadas')} />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label htmlFor="ultimaReproducao" className="block text-sm font-medium text-[#0a0a0a]">
-                        <Calendar className="inline size-4 mr-1.5 text-[#FFAD93]" />
-                        Última Reprodução
-                      </label>
-                      <input id="ultimaReproducao" type="date" value={formData.ultimaReproducao} onChange={(event) => handleChange('ultimaReproducao', event.target.value)} className={getInputClassName('ultimaReproducao')} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor="observacoesReproducao" className="block text-sm font-medium text-[#0a0a0a]">
-                      <FileText className="inline size-4 mr-1.5 text-[#FFAD93]" />
-                      Observações
-                    </label>
-                    <textarea
-                      id="observacoesReproducao"
-                      value={formData.observacoesReproducao}
-                      onChange={(event) => handleChange('observacoesReproducao', event.target.value)}
-                      placeholder="Observações sobre o histórico de reprodução..."
-                      rows={4}
-                      className={`w-full px-4 py-3 rounded-xl text-base resize-none transition-all placeholder:text-[rgba(10,10,10,0.5)] ${
-                        formData.observacoesReproducao.length > 0
-                          ? 'border-2 border-[#FFAD93] bg-[rgba(255,173,147,0.03)] focus:outline-none focus:ring-2 focus:ring-[#ffa98f]'
-                          : 'border border-[#d1d5dc] bg-white focus:outline-none focus:ring-2 focus:ring-[#ffa98f] focus:border-transparent'
-                      }`}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
             {error && (
               <div className="mt-6 bg-red-50 border-2 border-red-200 rounded-lg p-4 text-red-700" role="alert" aria-live="assertive">
                 {error}
@@ -928,6 +881,16 @@ export default function PetRegister({
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 pt-8">
+              {currentStep === 1 && (
+                <button
+                  type="button"
+                  onClick={() => router.push('/tutor-profile')}
+                  className="flex-1 px-6 py-3 border-2 border-[#d1d5dc] text-[#0a0a0a] rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+              )}
+
               {currentStep > 1 && (
                 <button
                   type="button"
@@ -939,7 +902,7 @@ export default function PetRegister({
                 </button>
               )}
 
-              {currentStep < 6 ? (
+              {currentStep < 5 ? (
                 <button
                   type="button"
                   onClick={nextStep}
@@ -955,7 +918,8 @@ export default function PetRegister({
                 </button>
               ) : (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmit}
                   disabled={isSubmitting}
                   className="flex-1 bg-gradient-to-r from-[#ffa98f] to-[#ff8566] text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-shadow flex items-center justify-center gap-2 disabled:opacity-70"
                 >
