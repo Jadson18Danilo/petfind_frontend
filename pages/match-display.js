@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Heart, MapPin, X, Sparkles, Eye, MessageCircle, RotateCcw, User } from 'lucide-react';
 import { likePet, listMatches, listReceivedLikes, openDirectChat } from '../src/services/matches';
@@ -5,7 +6,6 @@ import { listPets } from '../src/services/pets';
 import { getMe, getMyAccess } from '../src/services/auth';
 import { resolveMediaUrl } from '../src/services/media';
 import { useRouter } from 'next/router';
-import Image from 'next/image';
 import Layout from '../src/components/Layout';
 import UpgradePlansModal from '../src/components/UpgradePlansModal';
 import { showToast } from '../src/services/toast';
@@ -14,6 +14,7 @@ const IMAGE_DURATION_MS = 10000;
 const MATCH_PREFS_KEY = 'matchPreferences';
 const DAILY_LIKES_STORAGE_KEY = 'dailyLikesUsage';
 const LIKED_PETS_DISMISSED_KEY = 'dismissedLikedPetsByActivePet';
+const LIKED_PETS_SEEN_KEY = 'seenLikedPetsByActivePet';
 const TUTOR_PREVIEW_STORAGE_KEY = 'matchTutorProfilePreview';
 const FALLBACK_FREE_DAILY_LIKE_LIMIT = 2;
 
@@ -230,8 +231,10 @@ export default function MatchDisplay({
   const [likesHydrated, setLikesHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState('matches');
   const [likedPets, setLikedPets] = useState([]);
+  const [unseenLikedCount, setUnseenLikedCount] = useState(0);
   const [likedImageFailedMap, setLikedImageFailedMap] = useState({});
   const [swipeHistory, setSwipeHistory] = useState([]);
+  const [lastNotifiedUnseenCount, setLastNotifiedUnseenCount] = useState(0);
 
   const currentProfile = pets[currentIndex];
   const currentProfileImages = currentProfile ? getProfileImageUrls(currentProfile) : [];
@@ -333,6 +336,38 @@ export default function MatchDisplay({
 
       parsed[baseKey] = [...nextSet];
       window.localStorage.setItem(LIKED_PETS_DISMISSED_KEY, JSON.stringify(parsed));
+    } catch {
+      // noop
+    }
+  }, []);
+
+  const readSeenLikedPetIds = useCallback((petId) => {
+    if (typeof window === 'undefined' || petId == null) return new Set();
+
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(LIKED_PETS_SEEN_KEY) || '{}');
+      const ids = Array.isArray(parsed?.[String(petId)]) ? parsed[String(petId)] : [];
+      return new Set(ids.map((value) => Number(value)).filter(Number.isFinite));
+    } catch {
+      return new Set();
+    }
+  }, []);
+
+  const persistSeenLikedPetIds = useCallback((basePetId, likedPetIds) => {
+    if (typeof window === 'undefined' || basePetId == null) return;
+
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(LIKED_PETS_SEEN_KEY) || '{}');
+      const baseKey = String(basePetId);
+      const previousIds = Array.isArray(parsed?.[baseKey])
+        ? parsed[baseKey].map((value) => Number(value)).filter(Number.isFinite)
+        : [];
+      const nextIds = Array.isArray(likedPetIds)
+        ? likedPetIds.map((value) => Number(value)).filter(Number.isFinite)
+        : [];
+
+      parsed[baseKey] = [...new Set([...previousIds, ...nextIds])];
+      window.localStorage.setItem(LIKED_PETS_SEEN_KEY, JSON.stringify(parsed));
     } catch {
       // noop
     }
@@ -513,26 +548,6 @@ export default function MatchDisplay({
           return;
         }
 
-        const receivedLikes = await listReceivedLikes(activePetNumericId).catch(() => []);
-        if (!mounted) return;
-
-        const dismissedLikedPetIds = readDismissedLikedPetIds(activePetNumericId);
-        const uniqueLikedPets = [];
-        const seenLikedPetIds = new Set();
-
-        receivedLikes.forEach((pet) => {
-          const petId = Number(pet?.id);
-          if (!Number.isFinite(petId)) return;
-          if (petId === Number(activePetNumericId)) return;
-          if (dismissedLikedPetIds.has(petId)) return;
-          if (seenLikedPetIds.has(petId)) return;
-
-          seenLikedPetIds.add(petId);
-          uniqueLikedPets.push(pet);
-        });
-
-        setLikedPets(uniqueLikedPets);
-
         const species = normalizeText(activePet.species || activePet.especie);
         const opposite = getOppositeSex(activePet.sex || activePet.sexo);
 
@@ -605,7 +620,91 @@ export default function MatchDisplay({
     fetchPets();
 
     return () => { mounted = false; };
-  }, [getOppositeSex, normalizeText, readDismissedLikedPetIds]);
+  }, [getOppositeSex, normalizeText]);
+
+  useEffect(() => {
+    if (!activePetId) {
+      setLikedPets([]);
+      setUnseenLikedCount(0);
+      setLastNotifiedUnseenCount(0);
+      return;
+    }
+
+    let mounted = true;
+
+    async function refreshLikedPets() {
+      const receivedLikes = await listReceivedLikes(activePetId).catch(() => []);
+      if (!mounted) return;
+
+      const dismissedLikedPetIds = readDismissedLikedPetIds(activePetId);
+      const uniqueLikedPets = [];
+      const dedupe = new Set();
+
+      receivedLikes.forEach((pet) => {
+        const petId = Number(pet?.id);
+        if (!Number.isFinite(petId)) return;
+        if (petId === Number(activePetId)) return;
+        if (dismissedLikedPetIds.has(petId)) return;
+        if (dedupe.has(petId)) return;
+
+        dedupe.add(petId);
+        uniqueLikedPets.push(pet);
+      });
+
+      setLikedPets(uniqueLikedPets);
+
+      const allLikedPetIds = uniqueLikedPets
+        .map((pet) => Number(pet?.id))
+        .filter(Number.isFinite);
+
+      if (activeTab === 'curtiram') {
+        persistSeenLikedPetIds(activePetId, allLikedPetIds);
+        setUnseenLikedCount(0);
+        setLastNotifiedUnseenCount(0);
+        return;
+      }
+
+      const seenLikedPetIds = readSeenLikedPetIds(activePetId);
+      const unseenCount = allLikedPetIds.filter((petId) => !seenLikedPetIds.has(petId)).length;
+      setUnseenLikedCount(unseenCount);
+
+      if (unseenCount > lastNotifiedUnseenCount) {
+        const delta = unseenCount - lastNotifiedUnseenCount;
+        const message = delta === 1
+          ? 'Você recebeu uma nova curtida!'
+          : `Você recebeu ${delta} novas curtidas!`;
+        showToast(message, 'success');
+      }
+
+      if (unseenCount !== lastNotifiedUnseenCount) {
+        setLastNotifiedUnseenCount(unseenCount);
+      }
+    }
+
+    refreshLikedPets();
+
+    const intervalId = setInterval(refreshLikedPets, 15000);
+    const handleFocus = () => refreshLikedPets();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleFocus);
+    }
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleFocus);
+      }
+    };
+  }, [
+    activePetId,
+    activeTab,
+    lastNotifiedUnseenCount,
+    persistSeenLikedPetIds,
+    readDismissedLikedPetIds,
+    readSeenLikedPetIds,
+  ]);
 
   function toAbsoluteUrl(url) {
     return resolveMediaUrl(url) || '';
@@ -1029,9 +1128,9 @@ export default function MatchDisplay({
                   }`}
                 >
                   Curtiram
-                  {likedPets.length > 0 && (
+                  {unseenLikedCount > 0 && (
                     <span className="absolute -top-2 -right-2 size-6 rounded-full bg-linear-to-r from-[#ffa98f] to-[#ff8566] text-white text-xs flex items-center justify-center font-bold shadow-lg animate-pulse">
-                      {likedPets.length}
+                      {unseenLikedCount}
                     </span>
                   )}
                 </button>
@@ -1137,13 +1236,10 @@ export default function MatchDisplay({
                   />
 
                   {currentImageUrl && !cardImageFailed ? (
-                    <Image
+                    <img
                       src={currentImageUrl}
                       alt={currentProfile.name || 'Pet'}
-                      fill
-                      sizes="(max-width: 640px) 100vw, 28rem"
-                      className="object-cover"
-                      priority={currentIndex === 0}
+                      className="w-full h-full object-cover"
                       onError={() => setCardImageFailed(true)}
                     />
                   ) : (
@@ -1205,11 +1301,9 @@ export default function MatchDisplay({
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="size-8 rounded-full overflow-hidden bg-[#f3f4f6] shrink-0">
                         {displayTutorAvatar ? (
-                          <Image
+                          <img
                             src={toAbsoluteUrl(displayTutorAvatar)}
                             alt={displayTutorName}
-                            width={32}
-                            height={32}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -1352,6 +1446,28 @@ export default function MatchDisplay({
                       <button onClick={handleGoPerfil} className="mt-4 btn btn-pill px-6 py-3">Ir para perfil</button>
                     </div>
                   </div>
+                ) : !isPremiumUser ? (
+                  <div className="h-full flex items-center justify-center text-center py-6">
+                    <div>
+                      <div className="size-24 mx-auto mb-4 rounded-full bg-[rgba(255,169,143,0.13)] flex items-center justify-center">
+                        <Eye className="size-12 text-[#ffa98f]" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-[#0a0a0a] mb-2">Ver quem curtiu é premium</h2>
+                      <p className="text-[#4a5565] mb-5">
+                        Faça upgrade para desbloquear a visualização de quem curtiu seu pet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUpgradeReason('chat-locked');
+                          setShowUpgradeModal(true);
+                        }}
+                        className="btn btn-pill px-6 py-3"
+                      >
+                        Ver planos premium
+                      </button>
+                    </div>
+                  </div>
                 ) : likedPets.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-center py-6">
                     <div>
@@ -1388,11 +1504,9 @@ export default function MatchDisplay({
                           >
                             <div className="relative h-56 overflow-hidden rounded-t-2xl bg-slate-100">
                               {likedImageUrl && !likedImageFailed ? (
-                                <Image
+                                <img
                                   src={likedImageUrl}
                                   alt={pet.name || 'Pet'}
-                                  fill
-                                  sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 288px"
                                   className={`object-cover transition-all duration-300 ${isPremiumUser ? 'group-hover:scale-105' : 'blur-xl scale-110'}`}
                                   onError={() => handleLikedImageError(pet.id)}
                                 />
@@ -1480,11 +1594,9 @@ export default function MatchDisplay({
             <div className="flex items-center justify-center gap-4 mb-6">
               <div className="size-20 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100 relative">
                 {currentMatchImageUrl && !matchImageFailed ? (
-                  <Image
+                  <img
                     src={currentMatchImageUrl}
                     alt={currentMatch.name || 'Pet'}
-                    fill
-                    sizes="80px"
                     className="object-cover"
                     onError={() => setMatchImageFailed(true)}
                   />

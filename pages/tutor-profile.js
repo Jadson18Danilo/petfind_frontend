@@ -1,5 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import {
   Activity,
   Award,
@@ -565,12 +565,10 @@ export default function PerfilTutor({
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden mb-3 sm:mb-4">
               <div className="relative aspect-4/3 sm:aspect-video lg:aspect-16/6 bg-gray-100">
                 {selectedPet.images[currentImageIndex] ? (
-                  <Image
+                  <img
                     src={selectedPet.images[currentImageIndex]}
                     alt={selectedPet.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1200px"
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-sm text-[#6a7282]">
@@ -608,11 +606,9 @@ export default function PerfilTutor({
                     className="size-16 sm:size-20 rounded-full overflow-hidden bg-gray-200 shrink-0 shadow-md hover:shadow-lg transition-shadow"
                   >
                     {tutor.avatar ? (
-                      <Image
+                      <img
                         src={tutor.avatar}
                         alt={tutor.name}
-                        width={80}
-                        height={80}
                         className="w-full h-full object-cover object-center"
                       />
                     ) : (
@@ -741,11 +737,9 @@ export default function PerfilTutor({
                         <button type="button" onClick={() => handlePetSelect(pet.id)} className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="size-10 sm:size-12 rounded-full overflow-hidden bg-gray-200 shrink-0">
                             {pet.images[0] ? (
-                              <Image
+                              <img
                                 src={pet.images[0]}
                                 alt={pet.name}
-                                width={48}
-                                height={48}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
@@ -975,11 +969,9 @@ export default function PerfilTutor({
             <X className="size-5 sm:size-6 text-white" />
           </button>
           {tutor.avatar ? (
-            <Image
+            <img
               src={tutor.avatar}
               alt={tutor.name}
-              width={1200}
-              height={900}
               className="max-w-full sm:max-w-3xl max-h-[70vh] sm:max-h-[80vh] rounded-xl sm:rounded-2xl shadow-2xl w-auto h-auto"
               onClick={(event) => event.stopPropagation()}
             />

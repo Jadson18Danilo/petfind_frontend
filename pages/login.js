@@ -39,9 +39,11 @@ export default function Login() {
     } catch (err) {
       const status = err?.response?.status;
       const backendError = err?.response?.data?.error;
+      const errorCode = err?.code;
+      const attemptedBaseURL = err?.config?.baseURL || err?.request?.responseURL || "desconhecido";
 
       if (!err?.response) {
-        setError("Não foi possível conectar ao servidor. Verifique se o backend está ativo.");
+        setError(`Não foi possível conectar ao servidor. (${errorCode || "erro de rede"} em ${attemptedBaseURL})`);
       } else if (status === 401) {
         setError("Email ou senha inválidos.");
       } else {

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { showToast } from './toast';
 
-const primaryBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+const configuredApiBaseURL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const primaryBaseURL = configuredApiBaseURL === '/api' ? '' : configuredApiBaseURL;
 
 const api = axios.create({
   baseURL: primaryBaseURL,
