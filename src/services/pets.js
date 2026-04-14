@@ -17,6 +17,7 @@ function normalizePet(pet) {
   const additionalPhotos = resolveMediaList(pet.additionalPhotos);
 
   const tutorName = (pet.tutorName ?? pet.tutor?.name ?? pet.owner?.name ?? pet.User?.name ?? '').toString().trim();
+  const tutorAvatar = resolveMediaUrl(pet.tutorAvatar ?? pet.tutor?.avatar ?? pet.owner?.avatar ?? pet.User?.avatar ?? '');
 
   return {
     ...pet,
@@ -26,6 +27,11 @@ function normalizePet(pet) {
     description,
     location,
     tutorName,
+    tutorAvatar,
+    tutor: {
+      ...(pet.tutor && typeof pet.tutor === 'object' ? pet.tutor : {}),
+      avatar: tutorAvatar || pet?.tutor?.avatar || null,
+    },
     mainPhoto,
     image,
     imageUrl,
