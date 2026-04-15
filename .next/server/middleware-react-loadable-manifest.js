@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST='{"pages\\\\pet-register.js -> ../src/services/auth":{"id":6857,"files":["static/chunks/857.336c68554ea08eb0.js"]},"pages\\\\tutor-edit.js -> ../src/services/auth":{"id":6857,"files":[]}}';
