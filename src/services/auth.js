@@ -12,8 +12,13 @@ export async function loginUser(payload) {
 }
 
 export async function logoutUser() {
-  const response = await api.post('/api/auth/logout', {}, { withCredentials: true });
-  return response.data;
+  try {
+    const response = await api.post('/api/auth/logout-all-cookies', {}, { withCredentials: true });
+    return response.data;
+  } catch {
+    const response = await api.post('/api/auth/logout', {}, { withCredentials: true });
+    return response.data;
+  }
 }
 
 export async function getMe() {
@@ -48,4 +53,12 @@ export async function updateMe(payload) {
     };
   }
   return me;
+}
+
+export async function getMyAccess() {
+  const response = await api.get('/api/me/access', {
+    withCredentials: true,
+    skipAuthRedirect: true,
+  });
+  return response.data;
 }

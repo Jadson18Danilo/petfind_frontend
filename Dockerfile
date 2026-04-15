@@ -2,6 +2,9 @@ FROM node:18-bullseye-slim
 
 WORKDIR /app
 
+ARG API_PROXY_TARGET=http://localhost:4001
+ENV API_PROXY_TARGET=${API_PROXY_TARGET}
+
 COPY package.json ./
 
 RUN npm install --include=dev --no-audit --no-fund

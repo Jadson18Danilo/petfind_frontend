@@ -1,15 +1,20 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getMe, logoutUser } from '../services/auth';
 import { getUnreadMessagesCount } from '../services/matches';
+import { getChatSocket } from '../services/socket';
+import { showToast } from '../services/toast';
 import { Home, Heart, MessageCircle, User } from 'lucide-react';
 
 export default function Header() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unseenLikesCount, setUnseenLikesCount] = useState(0);
+  const lastRealtimeMessageIdRef = useRef(null);
+  const lastRealtimeLikeIdRef = useRef(null);
 
   const path = router.pathname;
   const isHome = path === '/';
@@ -54,9 +59,84 @@ export default function Header() {
     }
   }, [router.pathname, user]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let mounted = true;
+    const socket = getChatSocket();
+
+    const refreshUnreadCount = async () => {
+      const count = await getUnreadMessagesCount();
+      if (!mounted) return;
+      setUnreadCount(Number(count) || 0);
+    };
+
+    const onRealtimeMessage = (payload) => {
+      const messageId = Number(payload?.id);
+      if (Number.isFinite(messageId) && lastRealtimeMessageIdRef.current === messageId) {
+        return;
+      }
+
+      if (Number.isFinite(messageId)) {
+        lastRealtimeMessageIdRef.current = messageId;
+      }
+
+      refreshUnreadCount();
+
+      const senderId = Number(payload?.senderId);
+      const isIncoming = Number.isFinite(senderId)
+        ? senderId !== Number(user.id)
+        : true;
+
+      if (isIncoming && router.pathname !== '/chat-on') {
+        showToast('Você recebeu uma nova mensagem!', 'info');
+      }
+    };
+
+    const onRealtimeLike = (payload) => {
+      const likeId = Number(payload?.likeId);
+      if (Number.isFinite(likeId) && lastRealtimeLikeIdRef.current === likeId) {
+        return;
+      }
+
+      if (Number.isFinite(likeId)) {
+        lastRealtimeLikeIdRef.current = likeId;
+      }
+
+      showToast('Seu pet recebeu uma nova curtida! 💖', 'success');
+
+      if (!router.pathname.startsWith('/match')) {
+        setUnseenLikesCount((previous) => previous + 1);
+      }
+    };
+
+    if (socket) {
+      socket.on('messages:new-message', onRealtimeMessage);
+      socket.on('likes:new-like', onRealtimeLike);
+    }
+
+    const intervalId = window.setInterval(refreshUnreadCount, 30000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+      if (socket) {
+        socket.off('messages:new-message', onRealtimeMessage);
+        socket.off('likes:new-like', onRealtimeLike);
+      }
+    };
+  }, [router.pathname, user?.id]);
+
+  useEffect(() => {
+    if (isMatches) {
+      setUnseenLikesCount(0);
+    }
+  }, [isMatches]);
+
   async function handleLogout() {
     await logoutUser();
     setUser(null);
+    setUnseenLikesCount(0);
   }
 
   function handleChatClick() {
@@ -101,7 +181,7 @@ export default function Header() {
               type="button"
               onClick={handlePrimaryClick}
               aria-label={showMatchButton ? 'Match' : 'Início'}
-              className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
+              className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
                 isPrimaryActive ? 'bg-[rgba(255,169,143,0.13)] hover:bg-[rgba(255,169,143,0.2)]' : 'hover:bg-gray-50'
               }`}
             >
@@ -109,6 +189,11 @@ export default function Header() {
                 <Heart className={`w-6 h-6 ${isPrimaryActive ? 'text-[#FFA98F]' : 'text-[#4A5565]'}`} />
               ) : (
                 <Home className={`w-6 h-6 ${isPrimaryActive ? 'text-[#FFA98F]' : 'text-[#4A5565]'}`} />
+              )}
+              {showMatchButton && unseenLikesCount > 0 && !isMatches && (
+                <span className="absolute top-0 right-0 bg-[#ff8566] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unseenLikesCount > 9 ? '9+' : unseenLikesCount}
+                </span>
               )}
             </button>
             <button
@@ -143,7 +228,7 @@ export default function Header() {
               type="button"
               onClick={handlePrimaryClick}
               aria-label={showMatchButton ? 'Match' : 'Início'}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
                 isPrimaryActive ? 'bg-[rgba(255,169,143,0.13)]' : 'hover:bg-gray-50'
               }`}
             >
@@ -151,6 +236,11 @@ export default function Header() {
                 <Heart className={`w-5 h-5 ${isPrimaryActive ? 'text-[#FFA98F]' : 'text-[#4A5565]'}`} />
               ) : (
                 <Home className={`w-5 h-5 ${isPrimaryActive ? 'text-[#FFA98F]' : 'text-[#4A5565]'}`} />
+              )}
+              {showMatchButton && unseenLikesCount > 0 && !isMatches && (
+                <span className="absolute top-0.5 right-0.5 bg-[#ff8566] text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
+                  {unseenLikesCount > 9 ? '9+' : unseenLikesCount}
+                </span>
               )}
             </button>
 

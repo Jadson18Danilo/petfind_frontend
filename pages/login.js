@@ -21,7 +21,8 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      await loginUser({ email, password });
+      const normalizedEmail = email.trim().toLowerCase();
+      await loginUser({ email: normalizedEmail, password });
       setMessage("Login realizado.");
 
       let destination = "/tutor-profile";
@@ -36,7 +37,18 @@ export default function Login() {
 
       router.push(destination);
     } catch (err) {
-      setError(err?.response?.data?.error || "Falha no login");
+      const status = err?.response?.status;
+      const backendError = err?.response?.data?.error;
+      const errorCode = err?.code;
+      const attemptedBaseURL = err?.config?.baseURL || err?.request?.responseURL || "desconhecido";
+
+      if (!err?.response) {
+        setError(`Não foi possível conectar ao servidor. (${errorCode || "erro de rede"} em ${attemptedBaseURL})`);
+      } else if (status === 401) {
+        setError("Email ou senha inválidos.");
+      } else {
+        setError(backendError || err?.message || "Falha no login");
+      }
     } finally {
       setIsSubmitting(false);
     }

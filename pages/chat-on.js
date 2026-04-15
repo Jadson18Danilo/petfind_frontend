@@ -132,6 +132,22 @@ export default function ChatOn() {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const requestedMatchId = Number(router.query?.matchId);
+    if (!Number.isFinite(requestedMatchId) || requestedMatchId <= 0) return;
+
+    const hasConversation = conversations.some((conv) => Number(conv.id) === requestedMatchId);
+    if (!hasConversation) return;
+
+    setActiveConversation(requestedMatchId);
+
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setShowConversationListMobile(false);
+    }
+  }, [router.isReady, router.query?.matchId, conversations]);
+
   // Load messages for active conversation
   useEffect(() => {
     if (!activeConversation || activeConversation === 'support' || !currentUserId) return;
@@ -168,6 +184,10 @@ export default function ChatOn() {
         };
 
         upsertMessage(mapped);
+
+        if (Number(payload?.senderId) !== Number(currentUserId)) {
+          markMessagesAsRead(activeConversation).catch(() => {});
+        }
       };
 
       socket.on('chat:new-message', onMessage);

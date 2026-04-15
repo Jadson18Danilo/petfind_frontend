@@ -6,6 +6,7 @@ function normalizePet(pet) {
 
   const name = pet.name ?? pet.nome ?? '';
   const age = pet.age ?? pet.ageMonths ?? pet.idade ?? '';
+  const birthDate = pet.birthDate ?? '';
   const description = pet.description ?? pet.bio ?? pet.biografia ?? '';
   const rawLocation = typeof pet.location === 'string' ? pet.location.trim() : '';
   const location = rawLocation || [pet.neighborhood, pet.city, pet.state].filter(Boolean).join(', ');
@@ -16,14 +17,21 @@ function normalizePet(pet) {
   const additionalPhotos = resolveMediaList(pet.additionalPhotos);
 
   const tutorName = (pet.tutorName ?? pet.tutor?.name ?? pet.owner?.name ?? pet.User?.name ?? '').toString().trim();
+  const tutorAvatar = resolveMediaUrl(pet.tutorAvatar ?? pet.tutor?.avatar ?? pet.owner?.avatar ?? pet.User?.avatar ?? '');
 
   return {
     ...pet,
     name,
     age,
+    birthDate,
     description,
     location,
     tutorName,
+    tutorAvatar,
+    tutor: {
+      ...(pet.tutor && typeof pet.tutor === 'object' ? pet.tutor : {}),
+      avatar: tutorAvatar || pet?.tutor?.avatar || null,
+    },
     mainPhoto,
     image,
     imageUrl,
