@@ -9,6 +9,7 @@ pnpm-lock.yaml
 
 # Env
 .env
+.env.example
 .env.local
 .env.*.local
 
@@ -49,8 +50,8 @@ Thumbs.db
 /coverage
 
 # next.js
-/.next/
-/out/
+
+
 
 # production
 /build
