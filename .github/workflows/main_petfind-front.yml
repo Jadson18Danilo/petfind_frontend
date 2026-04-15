@@ -37,6 +37,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
+          API_PROXY_TARGET: https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net
           NEXT_PUBLIC_API_URL: https://petfind.tech
           NEXT_PUBLIC_API_FALLBACK_URL: https://petfind.tech
           NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS: ${{ vars.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS || secrets.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS }}
