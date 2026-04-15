@@ -34,6 +34,12 @@ api.interceptors.response.use(
   async (error) => {
     const status = error?.response?.status;
     const skipAuthRedirect = Boolean(error?.config?.skipAuthRedirect);
+    const requestBaseURL = sanitizeBaseUrl(error?.config?.baseURL || api.defaults.baseURL);
+    const canRetry404WithFallback =
+      status === 404 &&
+      Boolean(fallbackBaseURL) &&
+      fallbackBaseURL !== requestBaseURL &&
+      !error?.config?._retryWithFallback;
 
     if (canRetry404WithFallback) {
       api.defaults.baseURL = fallbackBaseURL;
