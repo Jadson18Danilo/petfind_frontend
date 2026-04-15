@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { showToast } from './toast';
 
-const DEFAULT_API_URL = 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net';
+const DEFAULT_API_URL = 'https://petfind.tech';
 const KNOWN_INVALID_HOSTS = new Set([
   'petfind-gtgne8bjeth7d2au.canadacentral-01.azurewebsites.net',
+  'petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net',
 ]);
 
 function sanitizeBaseUrl(rawUrl) {
@@ -20,8 +21,12 @@ function sanitizeBaseUrl(rawUrl) {
   }
 }
 
+const browserOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 const primaryBaseURL = sanitizeBaseUrl(process.env.NEXT_PUBLIC_API_URL);
-const fallbackBaseURL = sanitizeBaseUrl(process.env.NEXT_PUBLIC_API_FALLBACK_URL) || DEFAULT_API_URL;
+const fallbackBaseURL =
+  sanitizeBaseUrl(process.env.NEXT_PUBLIC_API_FALLBACK_URL) ||
+  sanitizeBaseUrl(browserOrigin) ||
+  DEFAULT_API_URL;
 const resolvedBaseURL = primaryBaseURL || fallbackBaseURL;
 
 const api = axios.create({

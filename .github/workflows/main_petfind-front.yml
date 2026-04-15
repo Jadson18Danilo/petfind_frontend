@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
-    env:
-      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -39,8 +37,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL || 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net' }}
-          NEXT_PUBLIC_API_FALLBACK_URL: ${{ vars.NEXT_PUBLIC_API_FALLBACK_URL || secrets.NEXT_PUBLIC_API_FALLBACK_URL || 'https://petfind-back-gzhxbaececedfbc9.brazilsouth-01.azurewebsites.net' }}
+          NEXT_PUBLIC_API_URL: https://petfind.tech
+          NEXT_PUBLIC_API_FALLBACK_URL: https://petfind.tech
           NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS: ${{ vars.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS || secrets.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS }}
 
       - name: Upload artifact for deployment job
