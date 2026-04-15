@@ -32,6 +32,7 @@ const externalImageHosts = (process.env.NEXT_PUBLIC_EXTERNAL_IMAGE_HOSTS || 'img
 
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   async rewrites() {
     const apiTarget = process.env.API_PROXY_TARGET || 'http://localhost:4001';
     return [
